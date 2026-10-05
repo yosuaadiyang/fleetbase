@@ -36,11 +36,65 @@ $NON_INTERACTIVE && info "Non-interactive mode: all optional steps will use safe
 gen_secret() { openssl rand -hex "${1:-20}"; }
 
 # ─── Helper: append a non-empty env var line to the override builder ─────────
-# Usage: env_line VAR_NAME "value"   → echoes '      VAR_NAME: "value"' if non-empty
+# Usage: env_line VAR_NAME "value"   → echoes '  VAR_NAME: "value"' if non-empty
+# The value is escaped for a YAML double-quoted string, and "$" is doubled so Docker
+# Compose does not treat part of a password as a variable to interpolate.
 env_line() {
   local key="$1" val="$2"
   [[ -z "$val" ]] && return
-  printf '      %s: "%s"\n' "$key" "$val"
+  val=$(printf '%s' "$val" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\$/$$/g')
+  printf '  %s: "%s"\n' "$key" "$val"
+}
+
+# ─── Helper: read a value back from the override an earlier run wrote ────────
+# Usage: previous_value VAR_NAME   → the first 'VAR_NAME: "value"' in the override
+OVERRIDE_FILE="docker-compose.override.yml"
+previous_value() {
+  [[ -f "$OVERRIDE_FILE" ]] || return 0
+  sed -n "s/^ *$1: \"\(.*\)\"\$/\1/p" "$OVERRIDE_FILE" | head -n 1
+}
+
+# ─── Helper: has the bundled MySQL already initialized its datadir? ──────────
+DB_DATA_DIR="docker/database/mysql"
+db_initialized() {
+  [[ -e "$DB_DATA_DIR" ]] || return 1
+  # MySQL takes ownership of the datadir when it initializes it, so a non-root user
+  # usually cannot list it at all; that alone says it has been initialized.
+  [[ -r "$DB_DATA_DIR" && -x "$DB_DATA_DIR" ]] || return 0
+  [[ -n "$(ls -A "$DB_DATA_DIR" 2>/dev/null)" ]]
+}
+
+# ─── Helper: prompt until the answer is a bare domain name ───────────────────
+# Usage: ask_domain "Prompt"   → the answer is left in DOMAIN_ANSWER
+ask_domain() {
+  local input re='^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$'
+  while true; do
+    read -rp "$1: " input
+    input="$(lower "$input")"
+    input="${input#http://}"; input="${input#https://}"; input="${input%%/*}"
+    if [[ "$input" =~ $re ]]; then
+      DOMAIN_ANSWER="$input"
+      return
+    fi
+    warn "Enter a domain name such as app.example.com, without a scheme, port or path."
+    warn "An IP address will not work: certificates are only issued for domain names."
+  done
+}
+
+# ─── Helper: is Docker Compose at least 2.24.4? (docker-compose.prod.yml uses !reset)
+compose_supports_reset() {
+  local v maj min pat
+  v="$(docker compose version --short 2>/dev/null || true)"
+  v="${v#v}"
+  maj="${v%%.*}"; v="${v#*.}"
+  min="${v%%.*}"; v="${v#*.}"
+  pat="${v%%[!0-9]*}"
+  maj="${maj%%[!0-9]*}"; min="${min%%[!0-9]*}"
+  maj="${maj:-0}"; min="${min:-0}"; pat="${pat:-0}"
+  (( maj > 2 )) && return 0
+  (( maj == 2 && min > 24 )) && return 0
+  (( maj == 2 && min == 24 && pat >= 4 )) && return 0
+  return 1
 }
 
 echo
@@ -83,17 +137,6 @@ port_in_use() {
     return 2
   fi
 }
-for port_label in "8000:API" "4200:Console" "3306:MySQL" "38000:SocketCluster"; do
-  port="${port_label%%:*}"
-  label="${port_label##*:}"
-  if port_in_use "$port"; then
-    warn "Port ${port} (${label}) is already in use — this may cause a conflict."
-  elif [[ $? -eq 2 ]]; then
-    warn "Could not check whether port ${port} (${label}) is free (no ss, lsof or netstat found)."
-  else
-    success "Port ${port} (${label}) is free"
-  fi
-done
 
 success "Pre-flight checks complete"
 
@@ -102,14 +145,15 @@ success "Pre-flight checks complete"
 ###############################################################################
 section "Core Configuration"
 
+CONSOLE_DOMAIN=""; API_DOMAIN=""; ACME_EMAIL=""
 if $NON_INTERACTIVE; then
   HOST="localhost"
   ENVIRONMENT="development"
   APP_NAME="Fleetbase"
 else
-  read -rp "Host or IP address to bind to [localhost]: " HOST_INPUT
-  HOST="${HOST_INPUT:-localhost}"
-
+  echo "  development: plain HTTP on ports 4200 (console), 8000 (API) and 38000 (sockets)."
+  echo "  production:  HTTPS on your own domains, with free, auto-renewed Let's Encrypt"
+  echo "               certificates. Only ports 80 and 443 are opened to the internet."
   while true; do
     read -rp "Environment (development / production) [development]: " ENV_INPUT
     ENV_INPUT=$(echo "$ENV_INPUT" | tr '[:upper:]' '[:lower:]')
@@ -120,21 +164,94 @@ else
     esac
   done
 
+  if [[ "$ENVIRONMENT" == "production" ]]; then
+    info "Production needs two domain names (e.g. app.example.com and api.example.com)"
+    info "whose DNS A/AAAA records already point at this server."
+    ask_domain "Console domain (e.g. app.example.com)"
+    CONSOLE_DOMAIN="$DOMAIN_ANSWER"
+    while true; do
+      ask_domain "API domain (e.g. api.example.com)"
+      API_DOMAIN="$DOMAIN_ANSWER"
+      [[ "$API_DOMAIN" != "$CONSOLE_DOMAIN" ]] && break
+      warn "The API needs a domain of its own, different from the console's."
+    done
+    while true; do
+      read -rp "Email for Let's Encrypt certificate notices: " ACME_EMAIL
+      case "$ACME_EMAIL" in
+        *[[:space:]]*) ;;
+        ?*@?*.?*) break ;;
+      esac
+      warn "Please enter a valid email address."
+    done
+    HOST="$API_DOMAIN"
+  else
+    read -rp "Host or IP address to bind to [localhost]: " HOST_INPUT
+    HOST="${HOST_INPUT:-localhost}"
+  fi
+
   read -rp "Application name [Fleetbase]: " APP_NAME_INPUT
   APP_NAME="${APP_NAME_INPUT:-Fleetbase}"
 fi
 
 # Derive scheme flags
-USE_HTTPS=false; APP_DEBUG=true; SC_SECURE=false
-[[ "$ENVIRONMENT" == "production" ]] && { USE_HTTPS=true; APP_DEBUG=false; SC_SECURE=true; }
-SCHEME_API=$([[ "$USE_HTTPS" == true ]] && echo "https" || echo "http")
-SCHEME_CONSOLE=$([[ "$USE_HTTPS" == true ]] && echo "https" || echo "http")
+APP_DEBUG=true
+[[ "$ENVIRONMENT" == "production" ]] && APP_DEBUG=false
+
+# Public URLs. Production is served by Caddy on 443 (docker-compose.prod.yml);
+# development talks to the published container ports directly.
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  API_URL="https://${API_DOMAIN}"
+  CONSOLE_URL="https://${CONSOLE_DOMAIN}"
+  SC_HOST="$API_DOMAIN"; SC_PORT="443"; SC_SECURE=true
+else
+  API_URL="http://${HOST}:8000"
+  CONSOLE_URL="http://${HOST}:4200"
+  SC_HOST="$HOST"; SC_PORT="38000"; SC_SECURE=false
+fi
 
 # Detect localhost
 IS_LOCALHOST=false
 [[ "$HOST" == "localhost" || "$HOST" == "0.0.0.0" || "$HOST" == "127.0.0.1" ]] && IS_LOCALHOST=true
 
-info "Host: $HOST  |  Environment: $ENVIRONMENT  |  App name: $APP_NAME"
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  info "Console: $CONSOLE_URL  |  API: $API_URL  |  App name: $APP_NAME"
+else
+  info "Host: $HOST  |  Environment: $ENVIRONMENT  |  App name: $APP_NAME"
+fi
+
+# Production pre-flight: Compose version, DNS, and the ports Caddy needs.
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  if ! compose_supports_reset; then
+    error "Production mode needs Docker Compose 2.24.4 or newer (found: $(docker compose version --short 2>/dev/null || echo unknown))."
+    error "Upgrade Docker (https://docs.docker.com/engine/install/) and re-run."
+    exit 1
+  fi
+  if command -v getent >/dev/null 2>&1; then
+    for domain in "$CONSOLE_DOMAIN" "$API_DOMAIN"; do
+      if getent hosts "$domain" >/dev/null 2>&1; then
+        success "$domain resolves"
+      else
+        warn "$domain does not resolve yet. Certificates are issued only once its DNS record points at this server."
+      fi
+    done
+  fi
+  PORT_CHECKS="80:HTTP 443:HTTPS"
+else
+  PORT_CHECKS="8000:API 4200:Console 3306:MySQL 38000:SocketCluster"
+fi
+
+# Port availability (warn only — do not block).
+for port_label in $PORT_CHECKS; do
+  port="${port_label%%:*}"
+  label="${port_label##*:}"
+  if port_in_use "$port"; then
+    warn "Port ${port} (${label}) is already in use — this may cause a conflict."
+  elif [[ $? -eq 2 ]]; then
+    warn "Could not check whether port ${port} (${label}) is free (no ss, lsof or netstat found)."
+  else
+    success "Port ${port} (${label}) is free"
+  fi
+done
 
 ###############################################################################
 # STEP 2 — Locate project root
@@ -149,6 +266,7 @@ cd "$PROJECT_ROOT"
 section "Database Configuration"
 
 DB_MODE="internal"   # default
+DB_REUSED=false
 
 if ! $NON_INTERACTIVE; then
   echo "  1) Bundled Docker MySQL  (recommended for development)"
@@ -174,12 +292,30 @@ if [[ "$DB_MODE" == "external" ]]; then
   DB_DATABASE="$DB_NAME"
   success "External database configured"
 else
-  DB_ROOT_PASSWORD="$(gen_secret 20)"
-  DB_PASSWORD="$(gen_secret 20)"
-  DB_USERNAME="fleetbase"
-  DB_DATABASE="fleetbase"
+  # MySQL reads MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD only when it initializes an empty
+  # datadir. Once docker/database/mysql holds a database, new credentials would never
+  # reach it and the API could no longer log in, so a re-run keeps the ones it has.
+  if db_initialized; then
+    DB_ROOT_PASSWORD="$(previous_value MYSQL_ROOT_PASSWORD)"
+    DB_PASSWORD="$(previous_value MYSQL_PASSWORD)"
+    DB_USERNAME="$(previous_value MYSQL_USER)"
+    DB_DATABASE="$(previous_value MYSQL_DATABASE)"
+    if [[ -z "$DB_ROOT_PASSWORD" || -z "$DB_PASSWORD" || -z "$DB_USERNAME" || -z "$DB_DATABASE" ]]; then
+      error "$DB_DATA_DIR already holds a database, but $OVERRIDE_FILE does not have the credentials it was created with."
+      error "Restore that install's $OVERRIDE_FILE (or one of its .bak copies) and re-run, or start over"
+      error "with an EMPTY database by deleting the old one:  sudo rm -rf $DB_DATA_DIR"
+      exit 1
+    fi
+    DB_REUSED=true
+    success "Existing bundled database found — keeping its credentials"
+  else
+    DB_ROOT_PASSWORD="$(gen_secret 20)"
+    DB_PASSWORD="$(gen_secret 20)"
+    DB_USERNAME="fleetbase"
+    DB_DATABASE="fleetbase"
+    success "Secure database credentials auto-generated"
+  fi
   DATABASE_URL="mysql://${DB_USERNAME}:${DB_PASSWORD}@database/${DB_DATABASE}"
-  success "Secure database credentials auto-generated"
 fi
 
 ###############################################################################
@@ -303,21 +439,38 @@ section "Security & CORS Configuration"
 # Derive SESSION_DOMAIN
 SESSION_DOMAIN="$( $IS_LOCALHOST && echo 'localhost' || echo "$HOST" )"
 
-# Derive SOCKETCLUSTER_OPTIONS origins
-if $IS_LOCALHOST; then
-  SOCKET_ORIGINS="http://localhost:*,https://localhost:*,ws://localhost:*,wss://localhost:*"
-else
-  SOCKET_ORIGINS="${SCHEME_CONSOLE}://${HOST}:*,wss://${HOST}:*"
-fi
-SOCKETCLUSTER_OPTIONS="{\"origins\":\"${SOCKET_ORIGINS}\"}"
-
-success "SESSION_DOMAIN set to: $SESSION_DOMAIN"
-success "WebSocket origins restricted to: $SOCKET_ORIGINS"
-
 FRONTEND_HOSTS=""
 if ! $NON_INTERACTIVE; then
   read -rp "Additional frontend hosts for CORS (comma-separated, leave blank for none): " FRONTEND_HOSTS
 fi
+
+# Derive SOCKETCLUSTER_OPTIONS origins.
+#
+# SocketCluster matches each connection's Origin as "hostname:port", and the list has
+# to be a JSON array: given a plain string it matches by substring, so "e.com:*"
+# would also admit "console.example.com". "null:*" admits connections that send no
+# Origin header at all, which is how the API itself publishes every real-time event
+# (and how mobile apps connect). Leaving it out silently drops all live updates.
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  SOCKET_HOSTS="$CONSOLE_DOMAIN $API_DOMAIN"
+elif $IS_LOCALHOST; then
+  SOCKET_HOSTS="localhost 127.0.0.1"
+else
+  SOCKET_HOSTS="$HOST"
+fi
+for frontend_host in $(printf '%s' "$FRONTEND_HOSTS" | tr ',' ' '); do
+  frontend_host="${frontend_host#*://}"; frontend_host="${frontend_host%%/*}"; frontend_host="${frontend_host%%:*}"
+  [[ -n "$frontend_host" ]] && SOCKET_HOSTS="$SOCKET_HOSTS $(lower "$frontend_host")"
+done
+SOCKET_ORIGINS=""
+for socket_host in $SOCKET_HOSTS; do
+  SOCKET_ORIGINS="${SOCKET_ORIGINS}\"${socket_host}:*\","
+done
+SOCKET_ORIGINS="${SOCKET_ORIGINS}\"null:*\""
+SOCKETCLUSTER_OPTIONS="{\"origins\":[${SOCKET_ORIGINS}]}"
+
+success "SESSION_DOMAIN set to: $SESSION_DOMAIN"
+success "WebSocket origins restricted to: $(printf '%s' "$SOCKET_ORIGINS" | tr -d '"')"
 
 ###############################################################################
 # STEP 7 — Optional third-party API keys
@@ -349,15 +502,20 @@ fi
 # STEP 8 — Generate APP_KEY
 ###############################################################################
 section "Generating Application Key"
-APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
-success "APP_KEY generated"
+# A new key on a re-run would make everything encrypted with the old one (two-factor
+# secrets, stored OAuth credentials) unreadable, so an existing key is kept.
+APP_KEY="$(previous_value APP_KEY)"
+if [[ -n "$APP_KEY" ]]; then
+  success "Existing APP_KEY kept"
+else
+  APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+  success "APP_KEY generated"
+fi
 
 ###############################################################################
 # STEP 9 — Write docker-compose.override.yml
 ###############################################################################
 section "Writing docker-compose.override.yml"
-
-OVERRIDE_FILE="docker-compose.override.yml"
 
 # Back up any existing override
 if [[ -f "$OVERRIDE_FILE" ]]; then
@@ -370,20 +528,25 @@ fi
 OVERRIDE_TMP="${OVERRIDE_FILE}.tmp.$$"
 
 {
+  # One environment for the API, the queue worker and the scheduler. They run the same
+  # code: given only the API's settings, the workers fell back to docker-compose.yml's
+  # passwordless root login and no APP_KEY, and every queued job and scheduled task
+  # failed against the password-protected database.
   cat <<YAML_HEADER
-services:
-  application:
-    environment:
+# Written by scripts/docker-install.sh. Re-running the installer keeps this install's
+# APP_KEY and database credentials, and backs this file up before replacing it.
+x-api-environment: &api-environment
 YAML_HEADER
 
   env_line "APP_KEY"           "$APP_KEY"
   env_line "APP_NAME"          "$APP_NAME"
-  env_line "APP_URL"           "${SCHEME_API}://${HOST}:8000"
-  env_line "CONSOLE_HOST"      "${SCHEME_CONSOLE}://${HOST}:4200"
+  env_line "APP_URL"           "$API_URL"
+  env_line "CONSOLE_HOST"      "$CONSOLE_URL"
   env_line "ENVIRONMENT"       "$ENVIRONMENT"
   env_line "APP_DEBUG"         "$APP_DEBUG"
   env_line "DATABASE_URL"      "$DATABASE_URL"
   env_line "SESSION_DOMAIN"    "$SESSION_DOMAIN"
+  [[ "$ENVIRONMENT" == "production" ]] && env_line "SESSION_SECURE_COOKIE" "true"
   env_line "FRONTEND_HOSTS"    "$FRONTEND_HOSTS"
   # Mail
   env_line "MAIL_MAILER"       "$MAIL_MAILER"
@@ -419,6 +582,16 @@ YAML_HEADER
 
   cat <<YAML_SOCKET
 
+services:
+  application:
+    environment: *api-environment
+
+  queue:
+    environment: *api-environment
+
+  scheduler:
+    environment: *api-environment
+
   socket:
     environment:
       SOCKETCLUSTER_OPTIONS: '${SOCKETCLUSTER_OPTIONS}'
@@ -452,41 +625,88 @@ mkdir -p "$CONFIG_DIR"
 
 OSRM_HOST="https://router.project-osrm.org"
 
+# Read by the console in the browser at boot (load-runtime-config), so it wins over
+# the values the console was built with.
 cat > "${CONFIG_DIR}/fleetbase.config.json.tmp" <<JSON
 {
-  "API_HOST": "${SCHEME_API}://${HOST}:8000",
-  "SOCKETCLUSTER_HOST": "${HOST}",
-  "SOCKETCLUSTER_PORT": "38000",
-  "SOCKETCLUSTER_SECURE": "${SC_SECURE}"
+  "API_HOST": "${API_URL}",
+  "SOCKETCLUSTER_HOST": "${SC_HOST}",
+  "SOCKETCLUSTER_PORT": "${SC_PORT}",
+  "SOCKETCLUSTER_SECURE": "${SC_SECURE}",
+  "SOCKETCLUSTER_PATH": "/socketcluster/"
 }
 JSON
 mv -f "${CONFIG_DIR}/fleetbase.config.json.tmp" "${CONFIG_DIR}/fleetbase.config.json"
 
+# Build-time defaults for the environment the console is built for.
 ENV_DIR="${CONFIG_DIR}/environments"
 mkdir -p "$ENV_DIR"
 
-cat > "${ENV_DIR}/.env.development" <<ENV_DEV
-API_HOST=http://${HOST}:8000
-API_NAMESPACE=int/v1
-SOCKETCLUSTER_PATH=/socketcluster/
-SOCKETCLUSTER_HOST=${HOST}
-SOCKETCLUSTER_SECURE=false
-SOCKETCLUSTER_PORT=38000
-OSRM_HOST=${OSRM_HOST}
-ENV_DEV
-
-cat > "${ENV_DIR}/.env.production" <<ENV_PROD
-API_HOST=https://${HOST}:8000
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  cat > "${ENV_DIR}/.env.production" <<ENV_PROD
+API_HOST=${API_URL}
 API_NAMESPACE=int/v1
 API_SECURE=true
 SOCKETCLUSTER_PATH=/socketcluster/
-SOCKETCLUSTER_HOST=${HOST}
+SOCKETCLUSTER_HOST=${SC_HOST}
 SOCKETCLUSTER_SECURE=true
-SOCKETCLUSTER_PORT=38000
+SOCKETCLUSTER_PORT=${SC_PORT}
 OSRM_HOST=${OSRM_HOST}
 ENV_PROD
+else
+  cat > "${ENV_DIR}/.env.development" <<ENV_DEV
+API_HOST=${API_URL}
+API_NAMESPACE=int/v1
+SOCKETCLUSTER_PATH=/socketcluster/
+SOCKETCLUSTER_HOST=${SC_HOST}
+SOCKETCLUSTER_SECURE=false
+SOCKETCLUSTER_PORT=${SC_PORT}
+OSRM_HOST=${OSRM_HOST}
+ENV_DEV
+fi
 
 success "Console configuration files updated"
+
+###############################################################################
+# STEP 10a — Select the Compose files (root .env)
+###############################################################################
+# Docker Compose reads .env next to docker-compose.yml on its own. In production it
+# names docker-compose.prod.yml in COMPOSE_FILE, so every later `docker compose`
+# command (up, pull, logs, exec) includes it without extra flags. Other lines in an
+# existing .env are kept; switching back to development removes these again.
+ROOT_ENV_FILE=".env"
+ROOT_ENV_KEYS="COMPOSE_FILE|COMPOSE_PATH_SEPARATOR|FLEETBASE_VERSION|CONSOLE_DOMAIN|API_DOMAIN|ACME_EMAIL"
+ROOT_ENV_TMP="${ROOT_ENV_FILE}.tmp.$$"
+if [[ -f "$ROOT_ENV_FILE" ]]; then
+  grep -Ev "^(${ROOT_ENV_KEYS})=|^# Written by scripts/docker-install.sh" "$ROOT_ENV_FILE" > "$ROOT_ENV_TMP" || true
+else
+  : > "$ROOT_ENV_TMP"
+fi
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  # The API image published for this checkout, so the API, queue and scheduler match
+  # the console built from it.
+  FLEETBASE_VERSION="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' console/package.json | head -n 1)"
+  if [[ -z "$FLEETBASE_VERSION" ]]; then
+    rm -f "$ROOT_ENV_TMP"
+    error "Could not read the Fleetbase version from console/package.json."
+    exit 1
+  fi
+  cat >> "$ROOT_ENV_TMP" <<ROOT_ENV
+# Written by scripts/docker-install.sh (production)
+COMPOSE_PATH_SEPARATOR=:
+COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml:docker-compose.prod.yml
+FLEETBASE_VERSION=v${FLEETBASE_VERSION}
+CONSOLE_DOMAIN=${CONSOLE_DOMAIN}
+API_DOMAIN=${API_DOMAIN}
+ACME_EMAIL=${ACME_EMAIL}
+ROOT_ENV
+fi
+if [[ -s "$ROOT_ENV_TMP" || -f "$ROOT_ENV_FILE" ]]; then
+  mv -f "$ROOT_ENV_TMP" "$ROOT_ENV_FILE"
+  success "$ROOT_ENV_FILE updated"
+else
+  rm -f "$ROOT_ENV_TMP"
+fi
 
 ###############################################################################
 # STEP 10b — Ensure api/.env exists
@@ -517,7 +737,12 @@ fi
 ###############################################################################
 section "Starting Fleetbase Containers"
 echo "  This may take a few minutes on first run..."
-docker compose up -d
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  echo "  The production console build alone can take 10–20 minutes and 4–5 GB of memory."
+fi
+# --build: `up` alone reuses an existing image, so a re-run (after a `git pull`, or
+# switching to production) would keep serving the console built the first time.
+docker compose up -d --build
 
 ###############################################################################
 # STEP 12 — Wait for database
@@ -587,7 +812,9 @@ SKIPPED_ITEMS=()
 
 [[ "$DB_MODE" == "external" ]] \
   && CONFIGURED_ITEMS+=("External Database") \
-  || CONFIGURED_ITEMS+=("Bundled MySQL (secure credentials auto-generated)")
+  || { $DB_REUSED \
+    && CONFIGURED_ITEMS+=("Bundled MySQL (existing database and credentials kept)") \
+    || CONFIGURED_ITEMS+=("Bundled MySQL (secure credentials auto-generated)"); }
 
 $CONFIG_MAIL \
   && CONFIGURED_ITEMS+=("Mail (${MAIL_MAILER})") \
@@ -597,7 +824,9 @@ $CONFIG_MAIL \
   && CONFIGURED_ITEMS+=("File Storage ($(upper "$FILESYSTEM_DRIVER"))") \
   || SKIPPED_ITEMS+=("File storage (local disk — not suitable for production)")
 
-CONFIGURED_ITEMS+=("WebSocket security (origins restricted to ${HOST})")
+CONFIGURED_ITEMS+=("WebSocket security (origins restricted to: ${SOCKET_HOSTS})")
+[[ "$ENVIRONMENT" == "production" ]] \
+  && CONFIGURED_ITEMS+=("HTTPS via Caddy + Let's Encrypt (only ports 80/443 are public)")
 
 $CONFIG_3P \
   && CONFIGURED_ITEMS+=("Third-party APIs (Maps, Geolocation, SMS)") \
@@ -609,8 +838,8 @@ echo -e "  ${BOLD}🏁  Fleetbase Installation Complete${RESET}"
 printf '%0.s═' {1..60}; echo
 echo
 echo "  📍  Endpoints"
-printf "      API     → %s://%s:8000\n"    "$SCHEME_API"     "$HOST"
-printf "      Console → %s://%s:4200\n"   "$SCHEME_CONSOLE" "$HOST"
+printf "      API     → %s\n" "$API_URL"
+printf "      Console → %s\n" "$CONSOLE_URL"
 if [[ ${#CONFIGURED_ITEMS[@]} -gt 0 ]]; then
   echo
   echo "  ✔   Configured:"

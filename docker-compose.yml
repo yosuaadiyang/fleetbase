@@ -15,8 +15,11 @@ services:
     # here replicates from or reads the binlog, and the telematics ingest made it
     # grow past 300 GB locally, so it is switched off.
     command: ["mysqld", "--skip-log-bin"]
+    # Loopback only. A bare "3306:3306" listens on every interface, and Docker's
+    # published ports bypass host firewalls such as ufw, so on a server the database
+    # was reachable from the internet. Host tools still connect on 127.0.0.1:3306.
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - "./docker/database/:/docker-entrypoint-initdb.d/"
       - "./docker/database/mysql:/var/lib/mysql"
@@ -38,14 +41,33 @@ services:
     environment:
       SOCKETCLUSTER_WORKERS: 10
       SOCKETCLUSTER_BROKERS: 10
-      # SOCKETCLUSTER_OPTIONS can be set via docker-compose.override.yml for specific environments
-      # For production, use: SOCKETCLUSTER_OPTIONS: '{"origins":"https://yourdomain.com:*"}'
-      # For development, use: SOCKETCLUSTER_OPTIONS: '{"origins":"http://localhost:*"}'
+      # SOCKETCLUSTER_OPTIONS can be set via docker-compose.override.yml to restrict the
+      # origins allowed to connect. Each entry is "hostname:port" (not a URL), and the list
+      # must be a JSON array: a plain string is matched by substring, so "e.com:*" would
+      # also admit "console.example.com". Always include "null:*": the API publishes
+      # events over a WebSocket that sends no Origin header, and without it every
+      # real-time update is refused.
+      #   SOCKETCLUSTER_OPTIONS: '{"origins":["app.example.com:*","null:*"]}'
 
+  # The scheduler and queue run the same code as `application` and need the same
+  # configuration and files: the same api/.env, and the same storage/app, so a file a
+  # queued job writes (an export, an import, a generated document) is one the API can
+  # serve. docker-compose.override.yml gives all three the same environment.
   scheduler:
     image: fleetbase/fleetbase-api:latest
     command: ["go-crond", "--verbose", "root:./crontab"]
     restart: unless-stopped
+    volumes:
+      - ./api/.env:/fleetbase/api/.env
+      - ./api/storage/app:/fleetbase/api/storage/app
+    # The image's own healthcheck probes FrankenPHP's admin port, which nothing listens
+    # on here, so this container always read "unhealthy". Without a database the
+    # scheduler registers no tasks at all and still exits 0 every minute, so check that.
+    healthcheck:
+      test: ["CMD", "php", "artisan", "db:monitor", "--databases=mysql"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
     environment:
       DATABASE_URL: "mysql://root@database/fleetbase"
       QUEUE_CONNECTION: redis
@@ -61,10 +83,15 @@ services:
     image: fleetbase/fleetbase-api:latest
     command: ["php", "artisan", "queue:work"]
     restart: unless-stopped
+    volumes:
+      - ./api/.env:/fleetbase/api/.env
+      - ./api/storage/app:/fleetbase/api/storage/app
+    # queue:status only pings Redis; a worker that cannot reach the database fails
+    # every job yet passed it, so the database is checked too.
     healthcheck:
-      test: ["CMD", "php", "artisan", "queue:status"]
+      test: ["CMD-SHELL", "php artisan queue:status && php artisan db:monitor --databases=mysql"]
       interval: 30s
-      timeout: 10s
+      timeout: 20s
       retries: 3
     environment:
       DATABASE_URL: "mysql://root@database/fleetbase"

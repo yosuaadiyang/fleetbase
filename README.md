@@ -166,6 +166,8 @@ flb install-fleetbase
 
 When setup finishes, open the console at http://localhost:4200 and create your first admin account and organization. The API is served at http://localhost:8000.
 
+To run Fleetbase in production on your own server, with HTTPS on your own domains, follow [DEPLOYING.md](DEPLOYING.md).
+
 The [running locally guide](https://www.fleetbase.io/docs/platform/quickstart/running-locally) also covers installing with Docker Compose or the setup script, configuring services like mail, maps, and SMS, and troubleshooting. To work on Fleetbase itself, follow the [development setup guide](https://www.fleetbase.io/docs/platform/quickstart/development-setup).
 
 ## Extensions

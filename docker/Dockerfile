@@ -135,8 +135,12 @@ RUN chmod -R 755 /fleetbase/api/storage
 # Set permissions for deploy script
 RUN chmod +x /fleetbase/api/deploy.sh
 
-# Install go-crond
-RUN curl -L https://github.com/webdevops/go-crond/releases/download/23.12.0/go-crond.linux.amd64 > /usr/local/bin/go-crond && chmod +x /usr/local/bin/go-crond
+# Install go-crond for the platform being built. The image is published for linux/amd64
+# and linux/arm64 (docker-bake.hcl "fleetbase-api"); a hard-coded amd64 binary left the
+# arm64 scheduler unable to start ("exec format error"). TARGETARCH is set by BuildKit;
+# the legacy builder leaves it empty, so fall back to amd64 there.
+ARG TARGETARCH
+RUN curl -fsSL "https://github.com/webdevops/go-crond/releases/download/23.12.0/go-crond.linux.${TARGETARCH:-amd64}" -o /usr/local/bin/go-crond && chmod +x /usr/local/bin/go-crond
 COPY docker/crontab ./crontab
 RUN chmod 0600 ./crontab
 

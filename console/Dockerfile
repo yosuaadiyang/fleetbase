@@ -39,8 +39,15 @@ RUN pnpm install --frozen-lockfile
 # Copy the console directory contents into the container at /console
 COPY . .
 
+# Runtime config (fleetbase.config.json, read in the browser at boot) is off by default
+# in production builds (config/environment.js), which then point at the API_HOST baked
+# in at build time. Pass DISABLE_RUNTIME_CONFIG=false to keep it on, so the same build
+# follows whatever fleetbase.config.json is mounted. Left unset, the default stands.
+ARG DISABLE_RUNTIME_CONFIG
+
 # Build the application
-RUN pnpm build --environment $ENVIRONMENT
+RUN if [ -z "$DISABLE_RUNTIME_CONFIG" ]; then unset DISABLE_RUNTIME_CONFIG; fi \
+  && pnpm build --environment $ENVIRONMENT
 
 # ---- Serve Stage ----
 FROM nginx:alpine

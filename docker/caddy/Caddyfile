@@ -1,0 +1,30 @@
+# Public entry point for production (docker-compose.prod.yml).
+#
+# Caddy obtains and renews Let's Encrypt certificates for both domains on its own;
+# both must already resolve to this server, with ports 80 and 443 open.
+#
+#   CONSOLE_DOMAIN  the console (the Ember app)
+#   API_DOMAIN      the API, plus the SocketCluster server under /socketcluster/
+#
+# The values come from the .env file next to docker-compose.yml, which
+# scripts/docker-install.sh writes in production mode.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$CONSOLE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy console:4200
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# Real-time events. The console connects to wss://{$API_DOMAIN}/socketcluster/,
+	# so the socket server needs no port or certificate of its own.
+	@socket path /socketcluster/*
+	reverse_proxy @socket socket:8000
+
+	reverse_proxy httpd:80
+}

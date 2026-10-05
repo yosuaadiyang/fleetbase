@@ -1,0 +1,96 @@
+# Production overlay for a single server (a VPS).
+#
+# Layered on top of docker-compose.yml and docker-compose.override.yml. In production
+# mode scripts/docker-install.sh writes it, together with the values below, into the
+# .env file next to this one (COMPOSE_FILE), so plain `docker compose ...` commands
+# pick it up.
+#
+# What it changes:
+#   - Caddy is the only service with public ports (80/443). It serves the console on
+#     CONSOLE_DOMAIN and the API, with real-time sockets under /socketcluster/, on
+#     API_DOMAIN, with automatically renewed Let's Encrypt certificates.
+#   - The database, socket, API (httpd) and console ports are no longer published.
+#     Docker's published ports bypass host firewalls such as ufw.
+#   - The API, queue and scheduler run the image published for this checkout's
+#     version (FLEETBASE_VERSION), rather than whatever `latest` is at pull time.
+#   - The console is a production build that still reads fleetbase.config.json.
+#   - Redis keeps queued jobs across restarts, and every container's logs rotate.
+#
+# Needs Docker Compose 2.24.4 or newer (for `!reset`).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-api-image: &api-image "fleetbase/fleetbase-api:${FLEETBASE_VERSION:?FLEETBASE_VERSION is not set; run scripts/docker-install.sh or set it in .env}"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CONSOLE_DOMAIN: "${CONSOLE_DOMAIN:?CONSOLE_DOMAIN is not set in .env}"
+      API_DOMAIN: "${API_DOMAIN:?API_DOMAIN is not set in .env}"
+      ACME_EMAIL: "${ACME_EMAIL:?ACME_EMAIL is not set in .env}"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - console
+      - httpd
+      - socket
+    logging: *logging
+
+  cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    logging: *logging
+
+  database:
+    ports: !reset []
+    logging: *logging
+
+  socket:
+    ports: !reset []
+    environment:
+      # Anything but "dev" turns off the per-request access log.
+      ENV: prod
+    logging: *logging
+
+  scheduler:
+    image: *api-image
+    logging: *logging
+
+  queue:
+    image: *api-image
+    logging: *logging
+
+  application:
+    image: *api-image
+    logging: *logging
+
+  console:
+    build:
+      args:
+        ENVIRONMENT: production
+        DISABLE_RUNTIME_CONFIG: "false"
+    ports: !reset []
+    logging: *logging
+
+  httpd:
+    ports: !reset []
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:
+  redis-data:

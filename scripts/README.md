@@ -170,6 +170,10 @@ The script expects Docker, Docker Compose v2, git, and OpenSSL to be available. 
 
 It runs on Linux, on macOS's stock `/bin/bash` 3.2, and on Windows in Git Bash. It also creates an empty `api/.env` (bind-mounted by `docker-compose.yml`) when one does not exist.
 
+In **development** mode the console, API and sockets are served over plain HTTP on ports 4200, 8000 and 38000. In **production** mode it asks for a console domain, an API domain and an email for Let's Encrypt, and writes a root `.env` whose `COMPOSE_FILE` adds `docker-compose.prod.yml`: Caddy serves both domains over HTTPS on 80/443 and no other port is published. See [DEPLOYING.md](../DEPLOYING.md).
+
+The generated `docker-compose.override.yml` gives the API, queue and scheduler one shared environment. Re-running the installer keeps the existing `APP_KEY` and bundled-database credentials (MySQL only reads them when it first initializes `docker/database/mysql`), and stops with an explanation if that database exists but its credentials are unknown.
+
 ## Validation
 
 Check the package linker script:
