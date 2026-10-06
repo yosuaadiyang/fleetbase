@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 
 common:
   new: Nuovo
@@ -618,7 +618,7 @@ auth:
       divider: 'Oppure continua con'
       continue-with: 'Continua con {provider}'
       signing-in: 'Accesso in corso...'
-      finish-signup: 'Completa la configurazione del tuo account Fleetbase per continuare.'
+      finish-signup: 'Completa la configurazione del tuo account Contrust per continuare.'
       connected-accounts: 'Account collegati'
       connected-accounts-help: 'Accedi con un provider invece che con una password. Puoi collegarne più di uno.'
       linked-heading: 'Collegati'
@@ -646,7 +646,7 @@ auth:
         not-verified: 'Il tuo account deve essere verificato per continuare.'
         rate-limited: 'Troppi tentativi. Riprova tra poco.'
         already-linked: 'Questo provider è già collegato al tuo account.'
-        identity-already-linked: 'Questo account è già collegato a un altro utente Fleetbase.'
+        identity-already-linked: 'Questo account è già collegato a un altro utente Contrust.'
         last-credential: 'Imposta prima una password o collega un altro provider, altrimenti non potrai accedere.'
         link-failed: 'Impossibile collegare il provider. Riprova.'
     slow-connection-message: Si stanno verificando problemi di connettività.
@@ -831,8 +831,8 @@ onboard:
       send-by-sms: Invia via SMS
 
 install:
-  not-configured-title: Fleetbase non è installato o configurato
-  not-configured-message: Completa la configurazione dalla CLI di Fleetbase o dal container dell'applicazione, poi ricarica questa pagina quando database, migrazioni e dati iniziali saranno pronti.
+  not-configured-title: Contrust non è installato o configurato
+  not-configured-message: Completa la configurazione dalla CLI di Contrust o dal container dell'applicazione, poi ricarica questa pagina quando database, migrazioni e dati iniziali saranno pronti.
   running-locally-docs: Vedi la documentazione per l'esecuzione in locale
   cloud-docs: Vedi la documentazione per il deployment in cloud
   refreshing: Installazione completata, ricaricamento in corso...

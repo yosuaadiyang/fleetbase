@@ -103,7 +103,7 @@ module('Integration | Component | configure/notification-channels', function (ho
         // Read before anything writes them: a @tracked field's initializer only runs on
         // first access, so a test that assigns first never evaluates it.
         assert.strictEqual(component.testResponse, undefined, 'no test notification has been sent yet');
-        assert.strictEqual(component.testTitle, 'Hello World from Fleetbase 🚀');
+        assert.strictEqual(component.testTitle, 'Hello World from Contrust 🚀');
         assert.strictEqual(component.testMessage, 'This is a test push notification!');
         assert.strictEqual(component.apnToken, undefined);
         assert.strictEqual(component.fcmToken, undefined);
@@ -282,7 +282,7 @@ module('Integration | Component | configure/notification-channels | defaults', f
         const captured = captureComponent(this.owner, 'configure/notification-channels', ConfigureNotificationChannelsComponent);
         await render(hbs`<div id="next-view-section-subheader-actions"></div><Configure::NotificationChannels />`);
 
-        assert.strictEqual(captured.instance.testTitle, 'Hello World from Fleetbase 🚀');
+        assert.strictEqual(captured.instance.testTitle, 'Hello World from Contrust 🚀');
         assert.strictEqual(captured.instance.testMessage, 'This is a test push notification!');
     });
 });

@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 common:
   new: Nuevo
   create: Crear
@@ -582,7 +582,7 @@ auth:
       divider: 'O continuar con'
       continue-with: 'Continuar con {provider}'
       signing-in: 'Iniciando sesión...'
-      finish-signup: 'Termine de configurar su cuenta de Fleetbase para continuar.'
+      finish-signup: 'Termine de configurar su cuenta de Contrust para continuar.'
       connected-accounts: 'Cuentas vinculadas'
       connected-accounts-help: 'Inicie sesión con un proveedor en lugar de una contraseña. Puede vincular más de uno.'
       linked-heading: 'Vinculadas'
@@ -610,7 +610,7 @@ auth:
         not-verified: 'Su cuenta debe ser verificada para continuar.'
         rate-limited: 'Demasiados intentos. Inténtelo de nuevo en breve.'
         already-linked: 'Ese proveedor ya está vinculado a su cuenta.'
-        identity-already-linked: 'Esa cuenta ya está vinculada a otro usuario de Fleetbase.'
+        identity-already-linked: 'Esa cuenta ya está vinculada a otro usuario de Contrust.'
         last-credential: 'Establezca una contraseña o vincule otro proveedor primero, o no podrá iniciar sesión.'
         link-failed: 'No se pudo vincular ese proveedor. Inténtelo de nuevo.'
     slow-connection-message: Experimentando problemas de conectividad.
@@ -635,7 +635,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code
@@ -805,8 +805,8 @@ onboard:
       resend-email: Reenviar correo electrónico
       send-by-sms: Enviar por SMS
 install:
-  not-configured-title: Fleetbase is not installed or configured
-  not-configured-message: Complete setup from the Fleetbase CLI or application container, then reload this page once the database, migrations, and seed data are ready.
+  not-configured-title: Contrust is not installed or configured
+  not-configured-message: Complete setup from the CLI or application container, then reload this page once the database, migrations, and seed data are ready.
   running-locally-docs: See running locally docs
   cloud-docs: See cloud deployment docs
   refreshing: Installation complete, refreshing...

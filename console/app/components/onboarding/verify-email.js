@@ -36,7 +36,7 @@ export default class OnboardingVerifyEmailComponent extends Component {
                 this.notifications.success('Email successfully verified!');
 
                 if (token) {
-                    this.notifications.info('Welcome to Fleetbase!');
+                    this.notifications.info('Welcome to Contrust!');
                     this.authSession.manuallyAuthenticate(token);
 
                     return this.router.transitionTo('console');

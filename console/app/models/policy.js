@@ -11,10 +11,10 @@ export default class PolicyModel extends Model {
 
     /** @attributes */
     @attr('string') name;
-    @attr('string') type;
+    @attr('brand-label') type;
     @attr('string') service;
     @attr('string') guard_name;
-    @attr('string') description;
+    @attr('brand-label') description;
     @attr('boolean') is_mutable;
     @attr('boolean') is_deletable;
 

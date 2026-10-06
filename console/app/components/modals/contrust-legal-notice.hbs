@@ -1,0 +1,47 @@
+{{! The Appropriate Legal Notices (AGPL-3.0 section 0 and 5d) for this modified version:
+      the upstream copyright, the license, the absence of warranty, and where to get the
+      source of the version these users are running (section 13). }}
+<Modal::Default @modalIsOpened={{@modalIsOpened}} @options={{@options}} @confirm={{@onConfirm}} @decline={{@onDecline}} @modalClass="flb-resource-modal">
+    <div class="modal-body-container fleetbase-legal-notice-content" data-test-legal-notice>
+        <div class="fleetbase-legal-notice-hero">
+            <div class="fleetbase-legal-notice-hero-main">
+                <img src="/images/icon.png" alt={{@options.brandName}} width="40" height="40" class="fleetbase-legal-notice-logo rounded-lg shadow-md" />
+                <div>
+                    <h3>{{@options.brandName}}</h3>
+                    <p>Built on Fleetbase, open source under the AGPL-3.0</p>
+                </div>
+            </div>
+            <span>Copyright © Fleetbase Pte. Ltd. and contributors. Modifications © {{format-date-fns (now) "yyyy"}} {{@options.brandName}}.</span>
+        </div>
+
+        <div class="fleetbase-legal-notice-section">
+            <h4>Open Source License</h4>
+            <p>
+                {{@options.brandName}}
+                is a modified version of Fleetbase, licensed under the GNU Affero General Public License v3.0 or later. You may convey and modify it under the terms of that license.
+            </p>
+        </div>
+
+        <div class="fleetbase-legal-notice-section">
+            <h4>No Warranty</h4>
+            <p>This program is distributed without any warranty, to the extent permitted by applicable law.</p>
+        </div>
+
+        <div class="fleetbase-legal-notice-links">
+            {{#if @options.sourceCodeUrl}}
+                <a href={{@options.sourceCodeUrl}} target="_blank" rel="noopener noreferrer" data-test-legal-source>
+                    <FaIcon @icon="arrow-up-right-from-square" class="fleetbase-legal-notice-link-icon" />
+                    <span>View source code</span>
+                </a>
+            {{/if}}
+            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">
+                <FaIcon @icon="arrow-up-right-from-square" class="fleetbase-legal-notice-link-icon" />
+                <span>View AGPL license</span>
+            </a>
+            <a href="https://github.com/fleetbase/fleetbase" target="_blank" rel="noopener noreferrer">
+                <FaIcon @icon="arrow-up-right-from-square" class="fleetbase-legal-notice-link-icon" />
+                <span>Fleetbase (upstream project)</span>
+            </a>
+        </div>
+    </div>
+</Modal::Default>

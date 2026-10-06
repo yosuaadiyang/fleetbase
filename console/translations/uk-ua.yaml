@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 
 common:
   new: Новий
@@ -639,7 +639,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code
@@ -835,8 +835,8 @@ onboard:
       send-by-sms: Надіслати SMS
 
 install:
-  not-configured-title: Fleetbase не встановлено або не налаштовано.
-  not-configured-message: Завершіть налаштування через CLI Fleetbase або контейнер застосунку, а потім перезавантажте цю сторінку, коли база даних, міграції та початкові дані будуть готові.
+  not-configured-title: Contrust не встановлено або не налаштовано.
+  not-configured-message: Завершіть налаштування через CLI або контейнер застосунку, а потім перезавантажте цю сторінку, коли база даних, міграції та початкові дані будуть готові.
   running-locally-docs: Див. документацію щодо локального запуску.
   cloud-docs: Див. документацію щодо розгортання в хмарі.
   refreshing: Встановлення завершено, оновлення...

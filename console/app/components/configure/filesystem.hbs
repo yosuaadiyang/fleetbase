@@ -1,5 +1,5 @@
 <ContentPanel @title="Filesystem" @open={{true}} @wrapperClass="bordered-classic">
-    <InputGroup @name="Driver" @helpText="Select the default filesystem driver for Fleetbase to use.">
+    <InputGroup @name="Driver" @helpText="Select the default filesystem driver for Contrust to use.">
         <Select @options={{this.disks}} @value={{this.driver}} @onSelect={{this.setDriver}} @placeholder="Select filesystem driver" class="w-full" disabled={{this.isLoading}} />
     </InputGroup>
     {{#if (eq this.driver "s3")}}

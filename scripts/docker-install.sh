@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/docker-install.sh
-# Fleetbase Docker installer — interactive setup wizard
+# Contrust Docker installer — interactive setup wizard
 # -------------------------------------------------------
 # Usage:
 #   bash scripts/docker-install.sh              # interactive (default)
@@ -98,7 +98,7 @@ compose_supports_reset() {
 }
 
 echo
-echo -e "${BOLD}🚀  Fleetbase Installation Wizard${RESET}"
+echo -e "${BOLD}🚀  Contrust Installation Wizard${RESET}"
 echo
 
 ###############################################################################
@@ -149,7 +149,7 @@ CONSOLE_DOMAIN=""; API_DOMAIN=""; ACME_EMAIL=""
 if $NON_INTERACTIVE; then
   HOST="localhost"
   ENVIRONMENT="development"
-  APP_NAME="Fleetbase"
+  APP_NAME="Contrust"
 else
   echo "  development: plain HTTP on ports 4200 (console), 8000 (API) and 38000 (sockets)."
   echo "  production:  HTTPS on your own domains, with free, auto-renewed Let's Encrypt"
@@ -189,8 +189,8 @@ else
     HOST="${HOST_INPUT:-localhost}"
   fi
 
-  read -rp "Application name [Fleetbase]: " APP_NAME_INPUT
-  APP_NAME="${APP_NAME_INPUT:-Fleetbase}"
+  read -rp "Application name [Contrust]: " APP_NAME_INPUT
+  APP_NAME="${APP_NAME_INPUT:-Contrust}"
 fi
 
 # Derive scheme flags
@@ -335,7 +335,7 @@ MAIL_HOST=""; MAIL_PORT=""; MAIL_USERNAME=""; MAIL_PASSWORD=""
 # which surfaces as a 400 on the verification-code endpoints and a 500 on any notification
 # send. This value matches config/mail.php's own default, so the result is the same as if
 # the key were genuinely unset.
-MAIL_FROM_ADDRESS="hello@fleetbase.io"; MAIL_FROM_NAME="$APP_NAME"
+MAIL_FROM_ADDRESS="hello@example.com"; MAIL_FROM_NAME="$APP_NAME"
 MAILGUN_DOMAIN=""; MAILGUN_SECRET=""
 POSTMARK_TOKEN=""; SENDGRID_API_KEY=""; RESEND_KEY=""
 
@@ -697,7 +697,7 @@ if [[ "$ENVIRONMENT" == "production" ]]; then
   FLEETBASE_VERSION="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' console/package.json | head -n 1)"
   if [[ -z "$FLEETBASE_VERSION" ]]; then
     rm -f "$ROOT_ENV_TMP"
-    error "Could not read the Fleetbase version from console/package.json."
+    error "Could not read the Contrust version from console/package.json."
     exit 1
   fi
   cat >> "$ROOT_ENV_TMP" <<ROOT_ENV
@@ -732,7 +732,7 @@ if [[ -d "$API_ENV_FILE" ]]; then
 elif [[ ! -f "$API_ENV_FILE" ]]; then
   mkdir -p "$(dirname "$API_ENV_FILE")"
   cat > "$API_ENV_FILE" <<'ENV_API'
-# Fleetbase API environment overrides.
+# Contrust API environment overrides.
 # Runtime configuration comes from docker-compose.override.yml and takes precedence
 # over this file; add per-host secrets or extra overrides here.
 ENV_API
@@ -744,7 +744,7 @@ fi
 ###############################################################################
 # STEP 11 — Start containers
 ###############################################################################
-section "Starting Fleetbase Containers"
+section "Starting Contrust Containers"
 echo "  This may take a few minutes on first run..."
 if [[ "$ENVIRONMENT" == "production" ]]; then
   echo "  The production console build alone can take 10–20 minutes and 4–5 GB of memory."
@@ -843,7 +843,7 @@ $CONFIG_3P \
 
 echo
 printf '%0.s═' {1..60}; echo
-echo -e "  ${BOLD}🏁  Fleetbase Installation Complete${RESET}"
+echo -e "  ${BOLD}🏁  Contrust Installation Complete${RESET}"
 printf '%0.s═' {1..60}; echo
 echo
 echo "  📍  Endpoints"

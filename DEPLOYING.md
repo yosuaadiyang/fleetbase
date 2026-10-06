@@ -1,6 +1,6 @@
-# Deploying Fleetbase on a VPS
+# Deploying Contrust on a VPS
 
-This guide runs Fleetbase in production on a single Linux server with Docker Compose.
+This guide runs Contrust in production on a single Linux server with Docker Compose.
 The installer sets up HTTPS with automatically renewed Let's Encrypt certificates, and
 only ports 80 and 443 are open to the internet.
 
@@ -129,10 +129,10 @@ Back up three things: the database, uploaded files, and your configuration.
 # Database (both the live and the sandbox schema)
 source <(grep -E '^ +MYSQL_ROOT_PASSWORD:' docker-compose.override.yml | sed 's/^ *MYSQL_ROOT_PASSWORD: */PW=/')
 docker compose exec -T database mysqldump -uroot -p"$PW" --single-transaction --routines \
-  --databases fleetbase fleetbase_sandbox | gzip > "fleetbase-$(date +%F).sql.gz"
+  --databases fleetbase fleetbase_sandbox | gzip > "contrust-$(date +%F).sql.gz"
 
 # Uploaded files and configuration
-tar czf "fleetbase-files-$(date +%F).tar.gz" api/storage/app \
+tar czf "contrust-files-$(date +%F).tar.gz" api/storage/app \
   docker-compose.override.yml .env api/.env console/fleetbase.config.json
 ```
 
@@ -168,6 +168,38 @@ docker compose exec application ./deploy.sh
 | Build killed / exit 137 | Out of memory: add swap (step 2), or stop the stack (`docker compose stop`) while it builds. |
 | Sign-up says a name "contains forbidden words" | Deliberate spam filter on names and organization names (for example "test"). Use your real name and company name. |
 | `/fleet-ops/settings/map` returns 500 | `GOOGLE_MAPS_API_KEY` is missing from the override. Re-run the installer, or add `GOOGLE_MAPS_API_KEY: ""` under `x-api-environment` (step 5). |
+
+## Branding and license
+
+This is a rebranded build of [Fleetbase](https://github.com/fleetbase/fleetbase), an
+open-source project licensed under the **GNU AGPL-3.0**.
+
+- **Name**: the installer's "Application name" (default `Contrust`) is used in emails and
+  as the sender name. The console's own text says Contrust (`console/config/brand.js`).
+- **Logo and icon**: placeholder Contrust artwork ships in `console/public/images` and
+  `console/public/favicon`. Upload your real logo and icon in the console under
+  **Admin → Branding**; they then replace the defaults in the console and in emails.
+  To change the defaults themselves, replace those image files and rebuild
+  (`docker compose up -d --build`).
+- **Rebranded at build time**: the console regenerates the brand on every build
+  (`console/config/brand*.js`), including text inside the extension packages, so it
+  survives package updates. A few labels the API itself sends (the "managed" role and
+  policy types, the seeded developer role) are relabelled in the console; the API's
+  test email is overridden in `api/resources/views/vendor`.
+- **Kept on purpose**: package, namespace, database and image names still say
+  `fleetbase` (for example `@fleetbase/ember-core`, `fleetbase/fleetbase-api`). They are
+  identifiers the code and the published packages depend on; users never see them.
+
+The AGPL-3.0 applies to anyone who offers this software over a network:
+
+- Keep the **"Legal"** link under the sign-in form. It shows the license notices the
+  AGPL requires, and credits Fleetbase as the upstream project.
+- Users of your deployment must be able to get **its source code**, including your
+  changes. The "Legal" notice links to `https://github.com/yosuaadiyang/fleetbase`; if
+  that repository is private, make it public or point the link at a public copy: add
+  `SOURCE_CODE_URL=https://…` to `.env` and run `docker compose up -d --build`.
+- "Fleetbase" is the upstream project's name. Keeping it out of your product name and
+  logo, as this build does, avoids any confusion with their brand.
 
 ## Notes
 

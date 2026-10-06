@@ -1,14 +1,14 @@
-# Fleetbase Scripts
+# Contrust Scripts
 
 This directory contains project-level utilities for local development and setup. Run all commands from the repository root unless a command says otherwise.
 
 ## `package-linker.mjs`
 
-`flb-package-linker` manages local Fleetbase package links for extension development. It updates the Console npm manifest, API Composer repositories, and Console pnpm workspace settings so linked extension packages and shared Ember packages resolve from `packages/*`.
+`flb-package-linker` manages local Contrust package links for extension development. It updates the Console npm manifest, API Composer repositories, and Console pnpm workspace settings so linked extension packages and shared Ember packages resolve from `packages/*`.
 
 Use this when working on an extension such as FleetOps and you need local changes from `packages/fleetops`, `packages/ember-ui`, `packages/ember-core`, or `packages/fleetops-data` to show up in the host app.
 
-The linker only treats a package as a Fleetbase extension when either:
+The linker only treats a package as a Contrust extension when either:
 
 - its `package.json` has `fleetbase-extension` in `keywords`
 - it has an `extension.json` manifest
@@ -57,7 +57,7 @@ Show currently linked packages and shared dependency resolution:
 flb-package-linker status
 ```
 
-Check for missing local symlinks or duplicate Fleetbase package versions in `console/pnpm-lock.yaml`:
+Check for missing local symlinks or duplicate Contrust package versions in `console/pnpm-lock.yaml`:
 
 ```sh
 flb-package-linker doctor
@@ -152,7 +152,7 @@ For pnpm, the linker moves non-auth `public-hoist-pattern[]` settings from `cons
 
 ## `docker-install.sh`
 
-`docker-install.sh` is the interactive Fleetbase Docker setup wizard. It checks required local tools, asks for core environment settings, generates local configuration, and guides Docker Compose setup.
+`docker-install.sh` is the interactive Contrust Docker setup wizard. It checks required local tools, asks for core environment settings, generates local configuration, and guides Docker Compose setup.
 
 Run the interactive wizard:
 
@@ -166,7 +166,7 @@ Run with defaults for non-interactive environments:
 bash scripts/docker-install.sh --non-interactive
 ```
 
-The script expects Docker, Docker Compose v2, git, and OpenSSL to be available. It warns when common Fleetbase ports are already in use but does not treat that as a hard failure.
+The script expects Docker, Docker Compose v2, git, and OpenSSL to be available. It warns when common Contrust ports are already in use but does not treat that as a hard failure.
 
 It runs on Linux, on macOS's stock `/bin/bash` 3.2, and on Windows in Git Bash. It also creates an empty `api/.env` (bind-mounted by `docker-compose.yml`) when one does not exist.
 

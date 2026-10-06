@@ -12,7 +12,7 @@ export default class ConfigureNotificationChannelsComponent extends Component {
     /* istanbul ignore next -- always assigned before first read */
     @tracked isLoading = false;
     @tracked testResponse;
-    @tracked testTitle = 'Hello World from Fleetbase 🚀';
+    @tracked testTitle = 'Hello World from Contrust 🚀';
     @tracked testMessage = 'This is a test push notification!';
     @tracked apnToken;
     @tracked fcmToken;

@@ -156,7 +156,7 @@ module('Integration | Component | onboarding/verify-email | verify', function (h
         assert.deepEqual(this.authenticated, ['auth-token']);
         assert.deepEqual(this.transitions, ['console']);
         assert.deepEqual(this.notifications().successes, ['Email successfully verified!']);
-        assert.deepEqual(this.notifications().infos, ['Welcome to Fleetbase!']);
+        assert.deepEqual(this.notifications().infos, ['Welcome to Contrust!']);
     });
 
     test('verify sends the user to login when no token comes back', async function (assert) {

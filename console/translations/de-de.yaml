@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 
 common:
   new: Neu
@@ -609,7 +609,7 @@ auth:
       divider: 'Oder fortfahren mit'
       continue-with: 'Mit {provider} fortfahren'
       signing-in: 'Sie werden angemeldet...'
-      finish-signup: 'Schließen Sie die Einrichtung Ihres Fleetbase-Kontos ab, um fortzufahren.'
+      finish-signup: 'Schließen Sie die Einrichtung Ihres Contrust-Kontos ab, um fortzufahren.'
       connected-accounts: 'Verknüpfte Konten'
       connected-accounts-help: 'Melden Sie sich über einen Anbieter statt mit einem Passwort an. Sie können mehrere verknüpfen.'
       linked-heading: 'Verknüpft'
@@ -637,7 +637,7 @@ auth:
         not-verified: 'Ihr Konto muss verifiziert werden, um fortzufahren.'
         rate-limited: 'Zu viele Versuche. Bitte versuchen Sie es in Kürze erneut.'
         already-linked: 'Dieser Anbieter ist bereits mit Ihrem Konto verknüpft.'
-        identity-already-linked: 'Dieses Konto ist bereits mit einem anderen Fleetbase-Benutzer verknüpft.'
+        identity-already-linked: 'Dieses Konto ist bereits mit einem anderen Contrust-Benutzer verknüpft.'
         last-credential: 'Legen Sie zuerst ein Passwort fest oder verknüpfen Sie einen anderen Anbieter, sonst könnten Sie sich nicht mehr anmelden.'
         link-failed: 'Der Anbieter konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.'
     slow-connection-message: Es treten Verbindungsprobleme auf.
@@ -663,7 +663,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code

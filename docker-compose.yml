@@ -52,7 +52,9 @@ services:
   # The scheduler and queue run the same code as `application` and need the same
   # configuration and files: the same api/.env, and the same storage/app, so a file a
   # queued job writes (an export, an import, a generated document) is one the API can
-  # serve. docker-compose.override.yml gives all three the same environment.
+  # serve. docker-compose.override.yml gives all three the same environment. Each also
+  # mounts api/config/fleetbase.php (the default logo and icon) and
+  # api/resources/views/vendor (email views that override the packages' own).
   scheduler:
     image: fleetbase/fleetbase-api:latest
     command: ["go-crond", "--verbose", "root:./crontab"]
@@ -60,6 +62,8 @@ services:
     volumes:
       - ./api/.env:/fleetbase/api/.env
       - ./api/storage/app:/fleetbase/api/storage/app
+      - ./api/config/fleetbase.php:/fleetbase/api/config/fleetbase.php:ro
+      - ./api/resources/views/vendor:/fleetbase/api/resources/views/vendor:ro
     # The image's own healthcheck probes FrankenPHP's admin port, which nothing listens
     # on here, so this container always read "unhealthy". Without a database the
     # scheduler registers no tasks at all and still exits 0 every minute, so check that.
@@ -86,6 +90,8 @@ services:
     volumes:
       - ./api/.env:/fleetbase/api/.env
       - ./api/storage/app:/fleetbase/api/storage/app
+      - ./api/config/fleetbase.php:/fleetbase/api/config/fleetbase.php:ro
+      - ./api/resources/views/vendor:/fleetbase/api/resources/views/vendor:ro
     # queue:status only pings Redis; a worker that cannot reach the database fails
     # every job yet passed it, so the database is checked too.
     healthcheck:
@@ -111,6 +117,8 @@ services:
       dockerfile: Dockerfile
       args:
         ENVIRONMENT: development
+        # Optional, from .env: where users can get this version's source (see DEPLOYING.md).
+        SOURCE_CODE_URL: ${SOURCE_CODE_URL:-}
     ports:
       - "4200:4200"
     volumes:
@@ -122,6 +130,8 @@ services:
     volumes:
       - ./api/.env:/fleetbase/api/.env
       - ./api/storage/app:/fleetbase/api/storage/app
+      - ./api/config/fleetbase.php:/fleetbase/api/config/fleetbase.php:ro
+      - ./api/resources/views/vendor:/fleetbase/api/resources/views/vendor:ro
     environment:
       ENVIRONMENT: development
       DATABASE_URL: "mysql://root@database/fleetbase"
@@ -132,8 +142,8 @@ services:
       REDIS_URL: tcp://cache
       SESSION_DOMAIN: localhost
       BROADCAST_DRIVER: socketcluster
-      MAIL_FROM_NAME: Fleetbase
-      APP_NAME: Fleetbase
+      MAIL_FROM_NAME: Contrust
+      APP_NAME: Contrust
       LOG_CHANNEL: daily
       REGISTRY_HOST: https://registry.fleetbase.io
       REGISTRY_PREINSTALLED_EXTENSIONS: "true"

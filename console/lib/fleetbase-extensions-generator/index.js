@@ -39,7 +39,7 @@ module.exports = {
         this._super.included.apply(this, arguments);
 
         console.log('\n' + '/'.repeat(70));
-        console.log('[Fleetbase] Extension Build System');
+        console.log('[Contrust] Extension Build System');
         console.log('/'.repeat(70));
 
         // Generate files on startup
@@ -53,23 +53,23 @@ module.exports = {
         // Clean up old/stale extensions directory before generating new files
         const extensionsDir = path.join(this.project.root, 'app', 'extensions');
         if (fs.existsSync(extensionsDir)) {
-            console.log('[Fleetbase] Cleaning up old extensions directory...');
+            console.log('[Contrust] Cleaning up old extensions directory...');
             fs.rmSync(extensionsDir, { recursive: true, force: true });
         }
 
         const extensions = await this.getExtensions();
 
         if (extensions.length > 0) {
-            console.log(`[Fleetbase] Discovered ${extensions.length} extension(s)`);
+            console.log(`[Contrust] Discovered ${extensions.length} extension(s)`);
             extensions.forEach((ext) => {
-                console.log(`[Fleetbase]   - ${ext.name} (v${ext.version})`);
+                console.log(`[Contrust]   - ${ext.name} (v${ext.version})`);
             });
             console.log('');
 
             // Generate extension shims (only needed when extensions are present)
             this.generateExtensionShims(extensions);
         } else {
-            console.log('[Fleetbase] No extensions found — generating empty extension loader to satisfy module dependencies.');
+            console.log('[Contrust] No extensions found — generating empty extension loader to satisfy module dependencies.');
         }
 
         // Always generate loaders, router, and manifest so that
@@ -165,7 +165,7 @@ module.exports = {
             const fileContent = this.getGeneratedFileHeader() + extensionContent;
 
             fs.writeFileSync(shimFile, fileContent, 'utf8');
-            console.log(`[Fleetbase]   ✓ Generated app/extensions/${mountPath}.js`);
+            console.log(`[Contrust]   ✓ Generated app/extensions/${mountPath}.js`);
         });
     },
 
@@ -212,7 +212,7 @@ export default getExtensionLoader;
 
         const loadersFile = path.join(extensionsDir, 'index.js');
         fs.writeFileSync(loadersFile, loadersContent, 'utf8');
-        console.log(`[Fleetbase]   ✓ Generated app/extensions/index.js`);
+        console.log(`[Contrust]   ✓ Generated app/extensions/index.js`);
     },
 
     generateRouter(extensions) {
@@ -337,7 +337,7 @@ export default getExtensionLoader;
         const routerFile = path.join(this.project.root, 'app/router.js');
         const fileContent = this.getGeneratedFileHeader() + output;
         fs.writeFileSync(routerFile, fileContent);
-        console.log(`[Fleetbase]   ✓ Generated app/router.js`);
+        console.log(`[Contrust]   ✓ Generated app/router.js`);
     },
 
     generateExtensionsManifest(extensions) {
@@ -355,7 +355,7 @@ export default getExtensionLoader;
 
         const manifestFile = path.join(publicDir, 'extensions.json');
         fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8');
-        console.log(`[Fleetbase]   ✓ Generated public/extensions.json`);
+        console.log(`[Contrust]   ✓ Generated public/extensions.json`);
     },
 
     watchExtensionFiles() {
@@ -387,8 +387,8 @@ export default getExtensionLoader;
             });
 
             watcher.on('change', (filePath) => {
-                console.log(`\n[Fleetbase] Extension file changed: ${path.basename(filePath)}`);
-                console.log('[Fleetbase] Regenerating extension files...\n');
+                console.log(`\n[Contrust] Extension file changed: ${path.basename(filePath)}`);
+                console.log('[Contrust] Regenerating extension files...\n');
                 self.generateExtensionFiles();
             });
         });

@@ -6,13 +6,21 @@ const Funnel = require('broccoli-funnel');
 const writeFile = require('broccoli-file-creator');
 const toBoolean = require('./config/utils/to-boolean');
 const intlPolyfillContext = require('./config/intl-polyfill-context');
+const generateBrandTranslations = require('./config/brand-translations');
+const rebrandPackages = require('./config/brand-packages');
 
 module.exports = function (defaults) {
+    // Before EmberApp reads any sources: rebrands the extension packages' strings.
+    generateBrandTranslations();
+    rebrandPackages();
+
     const app = new EmberApp(defaults, {
         storeConfigInMeta: false,
 
         fingerprint: {
-            exclude: ['leaflet/', 'leaflet-images/', 'socketcluster-client.min.js', 'fleetbase.config.json', 'extensions.json'],
+            // contrust-logo.png and contrust-icon.png keep fixed URLs: the API hands them out
+            // as the default branding (api/config/fleetbase.php), for the console and emails.
+            exclude: ['leaflet/', 'leaflet-images/', 'socketcluster-client.min.js', 'fleetbase.config.json', 'extensions.json', 'contrust-logo.png', 'contrust-icon.png'],
         },
 
         liveReload: {

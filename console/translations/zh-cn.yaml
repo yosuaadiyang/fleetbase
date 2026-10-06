@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 common:
   new: 新建
   create: 创建
@@ -557,7 +557,7 @@ auth:
       divider: '或使用以下方式继续'
       continue-with: '使用 {provider} 继续'
       signing-in: '正在登录...'
-      finish-signup: '请完成 Fleetbase 账户设置以继续。'
+      finish-signup: '请完成 Contrust 账户设置以继续。'
       connected-accounts: '已关联账户'
       connected-accounts-help: '使用登录服务代替密码登录。可以关联多个。'
       linked-heading: '已关联'
@@ -585,7 +585,7 @@ auth:
         not-verified: '您的账户需要通过验证才能继续。'
         rate-limited: '尝试次数过多，请稍后重试。'
         already-linked: '该登录方式已关联到您的账户。'
-        identity-already-linked: '该账户已关联到另一位 Fleetbase 用户。'
+        identity-already-linked: '该账户已关联到另一位 Contrust 用户。'
         last-credential: '请先设置密码或关联其他登录方式，否则您将无法登录。'
         link-failed: '无法关联该登录方式，请重试。'
     slow-connection-message: 网络连接不稳定。
@@ -609,7 +609,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code
@@ -769,8 +769,8 @@ onboard:
       resend-email: 重新发送邮件
       send-by-sms: 通过短信发送
 install:
-  not-configured-title: Fleetbase is not installed or configured
-  not-configured-message: Complete setup from the Fleetbase CLI or application container, then reload this page once the database, migrations, and seed data are ready.
+  not-configured-title: Contrust is not installed or configured
+  not-configured-message: Complete setup from the CLI or application container, then reload this page once the database, migrations, and seed data are ready.
   running-locally-docs: See running locally docs
   cloud-docs: See cloud deployment docs
   refreshing: Installation complete, refreshing...

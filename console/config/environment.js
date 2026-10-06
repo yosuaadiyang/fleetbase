@@ -1,6 +1,7 @@
 'use strict';
 const toBoolean = require('./utils/to-boolean');
 const getenv = require('./utils/getenv');
+const { BRAND_NAME } = require('./brand');
 const fixApiHost = require('./utils/fix-api-host');
 const asArray = require('./utils/as-array');
 const inlinePlaceholder = require('./utils/inline-placeholder');
@@ -26,6 +27,10 @@ module.exports = function (environment) {
             extensions: asArray(getenv('EXTENSIONS')),
             disableRuntimeConfig: toBoolean(getenv('DISABLE_RUNTIME_CONFIG', environment === 'production')),
             disableFleetbaseAttribution: toBoolean(getenv('DISABLE_FLEETBASE_ATTRIBUTION', false)),
+            brandName: BRAND_NAME,
+            // Where users can get the source of the version they are running, as the
+            // AGPL-3.0 requires (section 13). Linked from the "Legal" notice.
+            sourceCodeUrl: getenv('SOURCE_CODE_URL', 'https://github.com/yosuaadiyang/fleetbase'),
         },
 
         API: {

@@ -210,7 +210,7 @@ module('Integration | Component | onboarding/form | onboard', function (hooks) {
 
         assert.deepEqual(this.owner.lookup('service:session').authenticated, ['auth-token']);
         assert.deepEqual(this.transitions, ['console'], 'the user lands in the console');
-        assert.deepEqual(this.notifications().successes, ['Welcome to Fleetbase!']);
+        assert.deepEqual(this.notifications().successes, ['Welcome to Contrust!']);
         assert.deepEqual(this.orchestratorCalls, [], 'the onboarding flow is not advanced');
     });
 

@@ -11,11 +11,11 @@ export default class RoleModel extends Model {
     @hasMany('permission') permissions;
 
     /** @attributes */
-    @attr('string') name;
+    @attr('brand-label') name;
     @attr('string') guard_name;
     @attr('string') description;
     @attr('string') service;
-    @attr('string') type;
+    @attr('brand-label') type;
     @attr('boolean') is_mutable;
     @attr('boolean') is_deletable;
 

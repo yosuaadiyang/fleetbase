@@ -45,8 +45,13 @@ COPY . .
 # follows whatever fleetbase.config.json is mounted. Left unset, the default stands.
 ARG DISABLE_RUNTIME_CONFIG
 
+# Where the "Legal" notice tells users to get this version's source (AGPL-3.0 section 13).
+# Left unset, config/environment.js's default stands.
+ARG SOURCE_CODE_URL
+
 # Build the application
 RUN if [ -z "$DISABLE_RUNTIME_CONFIG" ]; then unset DISABLE_RUNTIME_CONFIG; fi \
+  && if [ -z "$SOURCE_CODE_URL" ]; then unset SOURCE_CODE_URL; fi \
   && pnpm build --environment $ENVIRONMENT
 
 # ---- Serve Stage ----

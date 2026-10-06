@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 common:
   new: جديد
   create: إنشاء
@@ -573,7 +573,7 @@ auth:
       divider: 'أو المتابعة باستخدام'
       continue-with: 'المتابعة باستخدام {provider}'
       signing-in: 'جارٍ تسجيل الدخول...'
-      finish-signup: 'أكمل إعداد حساب Fleetbase للمتابعة.'
+      finish-signup: 'أكمل إعداد حساب Contrust للمتابعة.'
       connected-accounts: 'الحسابات المرتبطة'
       connected-accounts-help: 'سجّل الدخول عبر مزوّد بدلاً من كلمة المرور. يمكنك ربط أكثر من مزوّد.'
       linked-heading: 'مرتبطة'
@@ -601,7 +601,7 @@ auth:
         not-verified: 'يجب التحقق من حسابك للمتابعة.'
         rate-limited: 'محاولات كثيرة جدًا. يرجى المحاولة بعد قليل.'
         already-linked: 'هذا المزوّد مرتبط بحسابك بالفعل.'
-        identity-already-linked: 'هذا الحساب مرتبط بالفعل بمستخدم Fleetbase آخر.'
+        identity-already-linked: 'هذا الحساب مرتبط بالفعل بمستخدم Contrust آخر.'
         last-credential: 'عيّن كلمة مرور أو اربط مزوّدًا آخر أولاً، وإلا فلن تتمكن من تسجيل الدخول.'
         link-failed: 'تعذّر ربط هذا المزوّد. يرجى المحاولة مرة أخرى.'
     slow-connection-message: تواجه مشاكل في الاتصال.
@@ -626,7 +626,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code
@@ -789,8 +789,8 @@ onboard:
       resend-email: إعادة إرسال البريد الإلكتروني
       send-by-sms: الإرسال عبر الرسائل النصية
 install:
-  not-configured-title: Fleetbase is not installed or configured
-  not-configured-message: Complete setup from the Fleetbase CLI or application container, then reload this page once the database, migrations, and seed data are ready.
+  not-configured-title: Contrust is not installed or configured
+  not-configured-message: Complete setup from the CLI or application container, then reload this page once the database, migrations, and seed data are ready.
   running-locally-docs: See running locally docs
   cloud-docs: See cloud deployment docs
   refreshing: Installation complete, refreshing...

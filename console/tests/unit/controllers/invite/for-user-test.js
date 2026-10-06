@@ -109,7 +109,7 @@ module('Unit | Controller | invite/for-user | accepting', function (hooks) {
 
         assert.deepEqual(this.posted, [{ path: 'users/accept-company-invite', payload: { code: 'INVITE-1' } }]);
         assert.deepEqual(this.owner.lookup('service:session').authenticated, ['invite-token']);
-        assert.deepEqual(this.notifications().successes, ['Invitation accepted, welcome to Fleetbase!']);
+        assert.deepEqual(this.notifications().successes, ['Invitation accepted, welcome to Contrust!']);
         assert.deepEqual(this.transitions, ['console']);
         assert.false(controller.isLoading, 'the busy flag is cleared');
         assert.deepEqual(this.modals().shown, [], 'an existing password is left alone');

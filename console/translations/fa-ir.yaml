@@ -564,7 +564,7 @@ auth:
       divider: 'یا ادامه با'
       continue-with: 'ادامه با {provider}'
       signing-in: 'در حال ورود...'
-      finish-signup: 'برای ادامه، راه‌اندازی حساب Fleetbase خود را کامل کنید.'
+      finish-signup: 'برای ادامه، راه‌اندازی حساب Contrust خود را کامل کنید.'
       connected-accounts: 'حساب‌های متصل'
       connected-accounts-help: 'به‌جای رمز عبور با یک ارائه‌دهنده وارد شوید. می‌توانید بیش از یکی متصل کنید.'
       linked-heading: 'متصل‌شده'
@@ -592,7 +592,7 @@ auth:
         not-verified: 'برای ادامه، حساب شما باید تأیید شود.'
         rate-limited: 'تلاش‌های بیش از حد. لطفاً کمی بعد دوباره تلاش کنید.'
         already-linked: 'این ارائه‌دهنده قبلاً به حساب شما متصل شده است.'
-        identity-already-linked: 'این حساب قبلاً به کاربر دیگری در Fleetbase متصل شده است.'
+        identity-already-linked: 'این حساب قبلاً به کاربر دیگری در Contrust متصل شده است.'
         last-credential: 'ابتدا رمز عبور تعیین کنید یا ارائه‌دهنده دیگری متصل کنید، وگرنه نمی‌توانید وارد شوید.'
         link-failed: 'اتصال این ارائه‌دهنده ممکن نشد. لطفاً دوباره تلاش کنید.'
     slow-connection-message: در حال تجربه مشکلات اتصال
@@ -616,7 +616,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code
@@ -776,8 +776,8 @@ onboard:
       resend-email: ارسال مجدد ایمیل
       send-by-sms: ارسال از طریق پیامک
 install:
-  not-configured-title: Fleetbase is not installed or configured
-  not-configured-message: Complete setup from the Fleetbase CLI or application container, then reload this page once the database, migrations, and seed data are ready.
+  not-configured-title: Contrust is not installed or configured
+  not-configured-message: Complete setup from the CLI or application container, then reload this page once the database, migrations, and seed data are ready.
   running-locally-docs: See running locally docs
   cloud-docs: See cloud deployment docs
   refreshing: Installation complete, refreshing...

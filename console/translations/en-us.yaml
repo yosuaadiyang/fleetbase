@@ -1,5 +1,5 @@
 app:
-  name: Fleetbase
+  name: Contrust
 
 common:
   new: New
@@ -629,7 +629,7 @@ auth:
       divider: 'Or continue with'
       continue-with: 'Continue with {provider}'
       signing-in: 'Signing you in...'
-      finish-signup: 'Finish setting up your Fleetbase account to continue.'
+      finish-signup: 'Finish setting up your Contrust account to continue.'
       connected-accounts: 'Connected accounts'
       connected-accounts-help: 'Sign in with a provider instead of a password. You can link more than one.'
       linked-heading: 'Linked'
@@ -657,7 +657,7 @@ auth:
         not-verified: 'Your account needs to be verified to proceed.'
         rate-limited: 'Too many attempts. Please try again shortly.'
         already-linked: 'That provider is already linked to your account.'
-        identity-already-linked: 'That account is already linked to another Fleetbase user.'
+        identity-already-linked: 'That account is already linked to another Contrust user.'
         last-credential: 'Set a password or link another provider first, or you would not be able to sign in.'
         link-failed: 'We could not link that provider. Please try again.'
     slow-connection-message: Experiencing connectivity issues.
@@ -683,7 +683,7 @@ auth:
     success-message: Your email address has been updated.
     invalid-verification-code: This email change link is invalid or expired.
     title: Confirm email change
-    message-text: Confirm this change to update the login email for your Fleetbase account.
+    message-text: Confirm this change to update the login email for your Contrust account.
     form:
       code:
         label: Confirmation code
@@ -899,8 +899,8 @@ onboard:
       send-by-sms: Send by SMS
 
 install:
-  not-configured-title: Fleetbase is not installed or configured
-  not-configured-message: Complete setup from the Fleetbase CLI or application container, then reload this page once the database, migrations, and seed data are ready.
+  not-configured-title: Contrust is not installed or configured
+  not-configured-message: Complete setup from the CLI or application container, then reload this page once the database, migrations, and seed data are ready.
   running-locally-docs: See running locally docs
   cloud-docs: See cloud deployment docs
   refreshing: Installation complete, refreshing...
