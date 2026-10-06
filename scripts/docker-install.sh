@@ -574,7 +574,16 @@ YAML_HEADER
   env_line "GOOGLE_CLOUD_KEY_FILE"       "$GOOGLE_CLOUD_KEY_FILE"
   # Third-party
   env_line "IPINFO_API_KEY"      "$IPINFO_API_KEY"
-  env_line "GOOGLE_MAPS_API_KEY" "$GOOGLE_MAPS_API_KEY"
+  # Written even when empty. The published API images resolve an unset key to null,
+  # and Fleet-Ops' map settings endpoint (/int/v1/fleet-ops/settings/map) then fails
+  # with a 500 on every install without Google Maps. An empty string is treated as
+  # "no key" everywhere, and a key saved in the console (Admin → Services) still
+  # takes effect. Left out when api/.env sets the key, so that value is not shadowed.
+  if [[ -n "$GOOGLE_MAPS_API_KEY" ]]; then
+    env_line "GOOGLE_MAPS_API_KEY" "$GOOGLE_MAPS_API_KEY"
+  elif ! grep -q '^GOOGLE_MAPS_API_KEY=' api/.env 2>/dev/null; then
+    printf '  GOOGLE_MAPS_API_KEY: ""\n'
+  fi
   env_line "GOOGLE_MAPS_LOCALE"  "$GOOGLE_MAPS_LOCALE"
   env_line "TWILIO_SID"          "$TWILIO_SID"
   env_line "TWILIO_TOKEN"        "$TWILIO_TOKEN"

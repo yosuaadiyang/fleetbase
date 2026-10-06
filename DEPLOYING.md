@@ -166,12 +166,18 @@ docker compose exec application ./deploy.sh
 | `queue` or `scheduler` unhealthy | `docker compose logs queue`; their healthchecks fail when they cannot reach the database. |
 | Emails never arrive | `MAIL_MAILER` in the override is `log` (the default); configure a real mailer (step 5). |
 | Build killed / exit 137 | Out of memory: add swap (step 2), or stop the stack (`docker compose stop`) while it builds. |
+| Sign-up says a name "contains forbidden words" | Deliberate spam filter on names and organization names (for example "test"). Use your real name and company name. |
+| `/fleet-ops/settings/map` returns 500 | `GOOGLE_MAPS_API_KEY` is missing from the override. Re-run the installer, or add `GOOGLE_MAPS_API_KEY: ""` under `x-api-environment` (step 5). |
 
 ## Notes
 
 - **Routing**: `OSRM_HOST` defaults to the public OSRM demo server, which is rate-limited
   and not meant for production traffic. Run your own OSRM, or use the Valhalla/VROOM
   extensions, for real workloads.
+- **Maps**: Fleet-Ops draws its map with OpenStreetMap tiles by default, loaded by each
+  user's browser. To use Google Maps, add the key in the console's Admin panel under
+  Services (Google Maps API Key). Heavy use of the public OSM tile servers is against their
+  [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 - **Logs** rotate at 10 MB × 5 files per container. Laravel's own logs are kept for 14
   days inside the `application` container.
 - **Redis** persists its data (append-only file), so queued jobs survive restarts.

@@ -52,6 +52,9 @@ return [
 
     'google_maps' => [
         'locale' => env('GOOGLE_MAPS_LOCALE', 'us'),
-        'api_key' => env('GOOGLE_MAPS_API_KEY'),
+        // '' rather than null when unset: Fleet-Ops' map settings endpoint returns this
+        // through a string-typed method, and null made it a 500 on every install
+        // without a Google Maps key.
+        'api_key' => env('GOOGLE_MAPS_API_KEY', ''),
     ]
 ];
