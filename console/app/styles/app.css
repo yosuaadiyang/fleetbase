@@ -3,3 +3,4 @@
 @import 'tailwindcss/utilities';
 @import 'inter-ui/inter.css';
 @import 'console.css';
+@import 'components/input-label.css';

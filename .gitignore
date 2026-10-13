@@ -33,6 +33,8 @@ docker/database/mysql/*
 # binary build resources
 builds/osx/frankenphp
 # build artifacts
+/backups/
+/releases/
 /builds/dist/
 /builds/linux/spc/downloads/*
 *.exe

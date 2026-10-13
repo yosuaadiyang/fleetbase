@@ -17,6 +17,11 @@ Changes:
   invalidation both clean up the overlay and permit retry.
 - Public tracking initializes its map without fetching private fleet coordinates.
 - Signup autocomplete and an unrestricted viewport improve form and zoom behavior.
+  The phone label targets its actual input. Input-label tooltips render lazily and
+  stay within the viewport so hidden help text does not create horizontal overflow.
+  Signup content grows inside a scrollable viewport so 200% text does not clip the
+  heading above the reachable area; help controls respond to keyboard focus and
+  have screen-reader descriptions. Closed help is unmounted to prevent overflow.
 - Native Intl stays in use for supported active languages. The intl service loads
   a missing language's polyfills/data before selecting it; newer selections win
   over a pending older selection. Unsupported inactive translation hydration does

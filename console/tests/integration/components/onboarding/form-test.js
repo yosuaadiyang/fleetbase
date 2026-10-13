@@ -27,6 +27,12 @@ module('Integration | Component | onboarding/form', function (hooks) {
         await render(hbs`<Onboarding::Form />`);
         assert.dom('input[type="email"]').hasAttribute('autocomplete', 'email');
         assert.dom('input[type="tel"]').hasAttribute('autocomplete', 'tel');
+        const phone = this.element.querySelector('input[type="tel"]');
+        assert.dom('input[type="tel"]').hasAttribute('aria-label', 'Phone number');
+        assert.true(
+            [...phone.labels].some((label) => label.textContent.trim() === 'Phone number'),
+            'the visible label targets the phone input'
+        );
         assert.dom('input[autocomplete="name"]').exists();
         assert.dom('input[autocomplete="organization"]').exists();
         assert.strictEqual(this.element.querySelectorAll('input[type="password"][autocomplete="new-password"]').length, 2);

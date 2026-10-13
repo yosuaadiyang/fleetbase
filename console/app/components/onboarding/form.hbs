@@ -1,10 +1,10 @@
-<div class="flex items-center justify-center h-screen min-h-screen px-4 py-12 bg-gray-50 dark:bg-gray-900 sm:px-6 lg:px-8 overflow-y-scroll">
-    <div class="w-full max-w-md h-screen flex flex-col items-center justify-center py-4">
+<div class="flex flex-col h-screen overflow-y-auto px-4 py-12 bg-gray-50 dark:bg-gray-900 sm:px-6 lg:px-8">
+    <div class="w-full max-w-md m-auto shrink-0 flex flex-col items-center justify-center py-4">
         <div class="bg-white dark:bg-gray-800 py-5 px-4 shadow rounded-lg w-full">
             <div class="mb-4">
                 <Image src={{@brand.logo_url}} @fallbackSrc="/images/fleetbase-logo-svg.svg" alt={{t "app.name"}} height="56" class="h-10 object-contain mx-auto" />
                 <div class="mt-2">
-                    <h2 class="text-center text-lg font-extrabold text-gray-900 dark:text-white truncate">
+                    <h2 class="text-center text-lg font-extrabold text-gray-900 dark:text-white">
                         {{t "onboard.index.title"}}
                     </h2>
                 </div>
@@ -55,8 +55,8 @@
                     @inputClass="input-lg"
                     @disabled={{this.isEmailLocked}}
                 />
-                <InputGroup @name={{t "onboard.index.phone"}} @helpText={{t "onboard.index.phone-help-text"}}>
-                    <PhoneInput @onInput={{fn (mut this.phone)}} autocomplete="tel" class="form-input input-lg w-full" />
+                <InputGroup @name={{t "onboard.index.phone"}} @helpText={{t "onboard.index.phone-help-text"}} as |inputId label|>
+                    <PhoneInput @onInput={{fn (mut this.phone)}} id={{inputId}} aria-label={{label}} autocomplete="tel" class="form-input input-lg w-full" />
                 </InputGroup>
                 <InputGroup @name={{t "onboard.index.organization-name"}} @value={{this.organization_name}} @autocomplete="organization" @helpText={{t "onboard.index.organization-help-text"}} @inputClass="input-lg" />
                 {{#if this.hasOauthIntent}}

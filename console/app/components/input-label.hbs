@@ -1,0 +1,31 @@
+<div class="flex {{@wrapperClass}}">
+    <label class="{{if @required 'required'}}" ...attributes>{{@labelText}}</label>
+    {{#if @helpText}}
+        <span id={{this.helpId}} class="sr-only">{{@helpText}} {{@exampleText}}</span>
+        <button
+            type="button"
+            class="ml-2 inline-flex items-center"
+            aria-label={{concat "Help: " @labelText}}
+            aria-describedby={{this.helpId}}
+            {{on "mouseenter" this.showHelp}}
+            {{on "focus" this.showHelp}}
+            {{on "mouseleave" this.hideHelp}}
+            {{on "blur" this.hideHelp}}
+            {{on "keydown" this.closeOnEscape}}
+        >
+            <FaIcon @icon={{or @icon "info-circle"}} @size="xs" class="text-gray-300 dark:text-gray-100 {{@iconClass}}" />
+            {{#if this.isHelpOpen}}
+            <Attach::Tooltip
+                @class="clean"
+                @animation="scale"
+                @placement={{or @tooltipPlacement "right"}}
+                @lazyRender={{true}}
+                @isShown={{true}}
+                @shiftOptions={{hash padding=8 crossAxis=true}}
+            >
+                <InputInfo @text={{@helpText}} @exampleText={{@exampleText}} class="input-label-help" />
+            </Attach::Tooltip>
+            {{/if}}
+        </button>
+    {{/if}}
+</div>
