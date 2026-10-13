@@ -137,13 +137,11 @@ export function clearRuntimeConfigCache() {
 }
 
 /**
- * Load and apply runtime config with localStorage caching.
+ * Load the current deployment config; use localStorage only as an offline fallback.
  *
  * Strategy:
- * 1. Check localStorage cache first (instant, no HTTP request)
- * 2. If cache hit and valid, use it immediately
- * 3. If cache miss, fetch from server and cache the result
- * 4. Cache is valid for 1 hour
+ * Fetch on every boot so endpoint changes and rollbacks take effect on reload.
+ * A production cache remains usable for one hour if the request fails.
  *
  * @export
  * @return {Promise<void>}
@@ -153,26 +151,14 @@ export default async function loadRuntimeConfig() {
         return;
     }
 
-    const isProduction = config?.environment === 'production';
-    if (isProduction) {
-        // Try cache first
-        const cachedConfig = getCachedConfig();
-        if (cachedConfig) {
-            applyRuntimeConfig(cachedConfig);
-            return;
-        }
-    }
-
-    // Cache miss - fetch from server
     try {
         const startTime = performance.now();
         const response = await fetch('/fleetbase.config.json', {
-            cache: 'default', // Use browser cache if available
+            cache: 'no-store',
         });
 
         if (!response.ok) {
-            debug('[Runtime Config] No fleetbase.config.json found, using built-in config defaults');
-            return;
+            throw new Error(`Runtime config request failed (${response.status})`);
         }
 
         const runtimeConfig = await response.json();
@@ -185,5 +171,11 @@ export default async function loadRuntimeConfig() {
         setCachedConfig(runtimeConfig);
     } catch (e) {
         debug(`[Runtime Config] Failed to load runtime config: ${e.message}`);
+        if (config?.environment === 'production') {
+            const cachedConfig = getCachedConfig();
+            if (cachedConfig) {
+                applyRuntimeConfig(cachedConfig);
+            }
+        }
     }
 }

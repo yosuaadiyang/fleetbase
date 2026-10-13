@@ -163,14 +163,45 @@ module('Unit | Utility | runtime-config', function (hooks) {
         assert.strictEqual(get(config, 'API.host'), before, 'the built-in config is left alone');
     });
 
-    test('loadRuntimeConfig applies a fresh cached config in production without a request', async function (assert) {
+    test('loadRuntimeConfig uses a fresh cache when the production request fails', async function (assert) {
         asProduction();
         writeCache({ API_HOST: 'https://cached.example.com' });
 
         await loadRuntimeConfig();
 
         assert.strictEqual(get(config, 'API.host'), 'https://cached.example.com', 'the cached override is applied');
-        assert.deepEqual(this.requests, [], 'a cache hit skips the network entirely');
+        assert.strictEqual(this.requests.length, 1, 'the current deployment config was requested first');
+    });
+
+    test('a deployment routing change overrides a still-valid cache on reload', async function (assert) {
+        asProduction();
+        writeCache({ OSRM_HOST: 'https://old-routing.example.com' });
+        this.respondWith({ ok: true, json: () => Promise.resolve({ OSRM_HOST: 'https://new-routing.example.com' }) });
+
+        await loadRuntimeConfig();
+
+        assert.strictEqual(get(config, 'osrm.host'), 'https://new-routing.example.com');
+        assert.strictEqual(JSON.parse(window.localStorage.getItem(CACHE_KEY)).config.OSRM_HOST, 'https://new-routing.example.com');
+    });
+
+    test('a non-success response can use the valid production cache', async function (assert) {
+        asProduction();
+        writeCache({ OSRM_HOST: 'https://cached-routing.example.com' });
+        this.respondWith({ ok: false, status: 503 });
+
+        await loadRuntimeConfig();
+
+        assert.strictEqual(get(config, 'osrm.host'), 'https://cached-routing.example.com');
+    });
+
+    test('an expired cache is not used when the request fails', async function (assert) {
+        asProduction();
+        const before = get(config, 'osrm.host');
+        writeCache({ OSRM_HOST: 'https://expired-routing.example.com' }, { age: CACHE_TTL + 1000 });
+
+        await loadRuntimeConfig();
+
+        assert.strictEqual(get(config, 'osrm.host'), before);
     });
 
     test('loadRuntimeConfig falls through to the server when the cache is empty', async function (assert) {
@@ -182,7 +213,7 @@ module('Unit | Utility | runtime-config', function (hooks) {
         assert.strictEqual(get(config, 'API.namespace'), 'from-server');
         assert.strictEqual(this.requests.length, 1, 'the config file is requested');
         assert.strictEqual(this.requests[0][0], '/fleetbase.config.json');
-        assert.deepEqual(this.requests[0][1], { cache: 'default' });
+        assert.deepEqual(this.requests[0][1], { cache: 'no-store' });
         assert.deepEqual(JSON.parse(window.localStorage.getItem(CACHE_KEY)).config, { API_NAMESPACE: 'from-server' }, 'the response is cached for the next boot');
         assert.strictEqual(window.localStorage.getItem(CACHE_VERSION_KEY), config.APP.version, 'the cache is stamped with the app version');
     });

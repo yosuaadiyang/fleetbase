@@ -33,6 +33,9 @@ Changes:
 - Caddy supplies HSTS, nosniff, referrer/permissions policy and same-origin framing
   protection. Only `frame-ancestors` is an enforced CSP. The broader resource CSP
   remains Report-Only pending authenticated module verification.
+- Runtime configuration is fetched with no-store on each boot. A valid one-hour
+  cache is only an offline fallback, so routing endpoint changes and rollback take
+  effect on reload instead of waiting for localStorage expiry.
 - Optional, privately served Indonesia routing configuration and a preparation
   pipeline are supplied in `docker/routing/README.md`.
 
