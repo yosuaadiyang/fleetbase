@@ -5,11 +5,6 @@ on:
     branches: [fix/contrust-deployment-audit]
     paths: [.github/workflows/build-routing-indonesia.yml]
   workflow_dispatch:
-    inputs:
-      upload_graph:
-        description: 'Upload graph for 1 day; check artifact storage quota/budget first'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -152,14 +147,21 @@ jobs:
             indonesia-osrm-20261012.tar.gz
             indonesia-osrm-20261012.tar.gz.sha256
           key: indonesia-osrm-261012-mld-55dbfd47-v1
-      - name: Upload graph (one day)
-        if: ${{ inputs.upload_graph }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: indonesia-osrm-20261012
-          path: |
-            indonesia-osrm-20261012.tar.gz
-            indonesia-osrm-20261012.tar.gz.sha256
-          retention-days: 1
-          compression-level: 0
-          if-no-files-found: error
+      - name: Transfer validated graph directly to VPS
+        env:
+          ROUTING_TRANSFER_KEY: ${{ secrets.CONTRUST_ROUTING_TRANSFER_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$ROUTING_TRANSFER_KEY"
+          sha256sum --check indonesia-osrm-20261012.tar.gz.sha256
+          checksum=$(sha256sum indonesia-osrm-20261012.tar.gz | cut -d ' ' -f 1)
+          size=$(stat -c %s indonesia-osrm-20261012.tar.gz)
+          test "$size" -le 10737418240
+          umask 077
+          key="$RUNNER_TEMP/contrust-routing-transfer.key"
+          hosts="$RUNNER_TEMP/contrust-routing-known-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$ROUTING_TRANSFER_KEY" > "$key"
+          printf '%s\n' '[103.147.33.10]:20318 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFVqzMbeEQpcDD6EvJWNjW7c0lJ1TuBnZUgawtVyeBIx' > "$hosts"
+          ssh -T -p 20318 -i "$key" -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts" -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 root@103.147.33.10 "upload-routing $checksum $size" < indonesia-osrm-20261012.tar.gz
+          printf 'Validated graph delivered to private VPS staging. Production activation requires separate route/capacity checks.\n' >> "$GITHUB_STEP_SUMMARY"
