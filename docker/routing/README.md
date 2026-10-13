@@ -14,8 +14,11 @@ OSRM's car profile rejects ways with neither highway nor route. The filter does
 not crop the country's geographic coverage. The filtered dataset reached graph
 expansion but also exhausted a 7 GiB limit. Use a preparation Docker host with
 about 32 GiB RAM; the script checks available RAM and caps processing at 24 GiB.
-This is a preparation recommendation, not a measured successful peak: the graph
-has not yet completed on a larger machine. The current 8 GiB VPS must not do this
+This is a preparation recommendation, not a measured successful peak: preprocessing later completed on a standard 16 GiB GitHub runner with 24 GiB
+additional swap (13 GiB RAM / 37 GiB total container limit). The first startup
+trial stopped because a positional filename was consumed as the boolean value
+for --trial; use explicit --trial=true and --mmap=true. Runtime route/capacity
+validation is still required. The current 8 GiB VPS must not do this
 preprocessing while serving production traffic.
 
 The input is Geofabrik's Indonesia snapshot from 2026-10-12 (data timestamp
@@ -29,7 +32,7 @@ v26.10.0; the same digest must prepare and serve the graph.
 Do not activate the overlay until extraction, partitioning, customization, startup
 trial and representative Indonesian queries pass. Copy the `indonesia.osrm.*`
 files to a read-only data directory on the VPS and set `OSRM_DATA_DIR` to it. Runtime
-uses memory mapping, a 1536 MiB memory limit, two threads and limits of 100 points
+uses explicit --mmap=true memory mapping, a 1536 MiB memory limit, two threads and limits of 100 points
 per route/table/match/trip. The public proxy allows GET/OPTIONS and a shared rate
 of 10 requests/second with a burst of 20; errors are not cached. Monitor route
 latency, memory, restarts and response codes before increasing these limits.

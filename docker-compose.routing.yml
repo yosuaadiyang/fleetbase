@@ -3,7 +3,7 @@
 services:
   routing:
     image: ghcr.io/project-osrm/osrm-backend@sha256:55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f
-    command: ["osrm-routed", "--algorithm", "mld", "--mmap", "--threads", "2", "--max-viaroute-size", "100", "--max-table-size", "100", "--max-matching-size", "100", "--max-trip-size", "100", "/data/indonesia.osrm"]
+    command: ["osrm-routed", "--algorithm", "mld", "--mmap=true", "--threads", "2", "--max-viaroute-size", "100", "--max-table-size", "100", "--max-matching-size", "100", "--max-trip-size", "100", "/data/indonesia.osrm"]
     restart: unless-stopped
     mem_limit: 1536m
     cpus: 1.5

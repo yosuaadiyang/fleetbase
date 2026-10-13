@@ -30,5 +30,5 @@ for stage in extract partition customize; do
     if [ "$stage" = extract ]; then args=(osrm-extract --threads 2 --profile /opt/car.lua /data/indonesia.routing.osm.pbf --output /data/indonesia.osrm); fi
     docker run --rm --memory=24g --memory-swap=28g --cpus=4 -v "$data_dir:/data" "$image" "${args[@]}"
 done
-docker run --rm --memory=1536m -v "$data_dir:/data:ro" "$image" osrm-routed --algorithm mld --mmap --threads 2 --trial /data/indonesia.osrm
+docker run --rm --memory=1536m -v "$data_dir:/data:ro" "$image" osrm-routed --algorithm mld --mmap=true --threads 2 --trial=true /data/indonesia.osrm
 printf 'Graph prepared; run representative route queries before activating the production overlay.\n'

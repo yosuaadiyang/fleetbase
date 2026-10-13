@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       require_cached_graph:
-        description: 'Transfer an already validated cached graph; fail instead of rebuilding if absent'
+        description: 'Transfer an already prepared cached graph; fail instead of rebuilding if absent'
         type: boolean
         default: false
 
@@ -27,23 +27,23 @@ jobs:
     env:
       OSRM_IMAGE: ghcr.io/project-osrm/osrm-backend@sha256:55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f
     steps:
-      - name: Restore previously validated graph archive
+      - name: Restore previously prepared graph archive
         id: graph-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             indonesia-osrm-20261012.tar.gz
             indonesia-osrm-20261012.tar.gz.sha256
-          key: indonesia-osrm-261012-mld-55dbfd47-v1
-      - name: Require a validated graph for transfer-only runs
+          key: indonesia-osrm-261012-mld-55dbfd47-prepared-v2
+      - name: Require a prepared graph for transfer-only runs
         if: ${{ inputs.require_cached_graph && steps.graph-cache.outputs.cache-hit != 'true' }}
         run: |
-          echo 'No validated graph cache is available; transfer-only run will not rebuild.' >&2
+          echo 'No prepared graph cache is available; transfer-only run will not rebuild.' >&2
           exit 1
       - name: Verify restored archive
         if: ${{ steps.graph-cache.outputs.cache-hit == 'true' }}
         run: sha256sum --check indonesia-osrm-20261012.tar.gz.sha256
-      - name: Prepare and validate graph
+      - name: Prepare MLD graph
         if: ${{ steps.graph-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
@@ -89,8 +89,53 @@ jobs:
             docker rm "$container"
             test "$status" -eq 0
           done
-          docker run --rm --memory=1536m -v "$PWD/data:/data:ro" "$OSRM_IMAGE" osrm-routed --algorithm mld --mmap --threads 2 --trial /data/indonesia.osrm
-          docker run -d --name routing-validation --memory=1536m --cpus=1.5 -p 127.0.0.1:5000:5000 -v "$PWD/data:/data:ro" "$OSRM_IMAGE" osrm-routed --algorithm mld --mmap --threads 2 /data/indonesia.osrm
+      - name: Package prepared graph
+        if: ${{ steps.graph-cache.outputs.cache-hit != 'true' }}
+        run: |
+          cat > data/ATTRIBUTION.md <<'EOF'
+          Indonesia snapshot 2026-10-12, Geofabrik, includes East Timor.
+          Data: © OpenStreetMap contributors, ODbL 1.0.
+          https://www.openstreetmap.org/copyright
+          https://download.geofabrik.de/asia/indonesia.html
+          OSRM car profile, MLD; image digest 55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f.
+          Preparation filter: nw/highway w/route w/railway r/type=restriction r/type=route (including referenced nodes/members).
+          EOF
+          tar --exclude='*.osm.pbf'  --exclude='*.md5' -czf indonesia-osrm-20261012.tar.gz -C data .
+          sha256sum indonesia-osrm-20261012.tar.gz > indonesia-osrm-20261012.tar.gz.sha256
+          test "$(stat -c %s indonesia-osrm-20261012.tar.gz)" -lt 9663676416
+      - name: Check free cache headroom
+        id: cache-quota
+        if: ${{ steps.graph-cache.outputs.cache-hit != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/cache/usage" > cache-usage.json
+          python3 - <<'PY'
+          import json,pathlib,os
+          used=json.loads(pathlib.Path('cache-usage.json').read_text())['active_caches_size_in_bytes']
+          size=pathlib.Path('indonesia-osrm-20261012.tar.gz').stat().st_size
+          allowed=used+size+256*1024**2 < 10*1024**3
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('can_save='+str(allowed).lower()+'\n')
+          print({'free_quota_gib':10,'used_bytes':used,'archive_bytes':size,'save_in_free_quota':allowed})
+          PY
+      - name: Preserve prepared graph within free cache quota
+        if: ${{ steps.cache-quota.outputs.can_save == 'true' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            indonesia-osrm-20261012.tar.gz
+            indonesia-osrm-20261012.tar.gz.sha256
+          key: indonesia-osrm-261012-mld-55dbfd47-prepared-v2
+      - name: Validate prepared graph before transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d data ]; then
+            mkdir data
+            tar --no-same-owner --no-same-permissions -xzf indonesia-osrm-20261012.tar.gz -C data
+          fi
+          docker run --rm --memory=1536m -v "$PWD/data:/data:ro" "$OSRM_IMAGE" osrm-routed --algorithm mld --mmap=true --threads 2 --trial=true /data/indonesia.osrm
+          docker run -d --name routing-validation --memory=1536m --cpus=1.5 -p 127.0.0.1:5000:5000 -v "$PWD/data:/data:ro" "$OSRM_IMAGE" osrm-routed --algorithm mld --mmap=true --threads 2 /data/indonesia.osrm
           trap 'docker rm -f routing-validation' EXIT
           for attempt in $(seq 1 60); do
             if curl -fsS 'http://127.0.0.1:5000/nearest/v1/driving/106.8272,-6.1754' >/dev/null; then break; fi
@@ -120,43 +165,6 @@ jobs:
           docker stats --no-stream routing-validation
           du -sh data
           printf 'Graph built and representative queries passed. Runtime capacity still needs verification on the VPS.\n' >> "$GITHUB_STEP_SUMMARY"
-      - name: Package validated graph
-        if: ${{ steps.graph-cache.outputs.cache-hit != 'true' }}
-        run: |
-          cat > data/ATTRIBUTION.md <<'EOF'
-          Indonesia snapshot 2026-10-12, Geofabrik, includes East Timor.
-          Data: © OpenStreetMap contributors, ODbL 1.0.
-          https://www.openstreetmap.org/copyright
-          https://download.geofabrik.de/asia/indonesia.html
-          OSRM car profile, MLD; image digest 55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f.
-          Preparation filter: nw/highway w/route w/railway r/type=restriction r/type=route (including referenced nodes/members).
-          EOF
-          tar --exclude='*.osm.pbf'  --exclude='*.md5' -czf indonesia-osrm-20261012.tar.gz -C data .
-          sha256sum indonesia-osrm-20261012.tar.gz > indonesia-osrm-20261012.tar.gz.sha256
-          test "$(stat -c %s indonesia-osrm-20261012.tar.gz)" -lt 9663676416
-      - name: Check free cache headroom
-        id: cache-quota
-        if: ${{ steps.graph-cache.outputs.cache-hit != 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/actions/cache/usage" > cache-usage.json
-          python3 - <<'PY'
-          import json,pathlib,os
-          used=json.loads(pathlib.Path('cache-usage.json').read_text())['active_caches_size_in_bytes']
-          size=pathlib.Path('indonesia-osrm-20261012.tar.gz').stat().st_size
-          allowed=used+size+256*1024**2 < 10*1024**3
-          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('can_save='+str(allowed).lower()+'\n')
-          print({'free_quota_gib':10,'used_bytes':used,'archive_bytes':size,'save_in_free_quota':allowed})
-          PY
-      - name: Preserve validated graph within free cache quota
-        if: ${{ steps.cache-quota.outputs.can_save == 'true' }}
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: |
-            indonesia-osrm-20261012.tar.gz
-            indonesia-osrm-20261012.tar.gz.sha256
-          key: indonesia-osrm-261012-mld-55dbfd47-v1
       - name: Transfer validated graph directly to VPS
         env:
           ROUTING_TRANSFER_KEY: ${{ secrets.CONTRUST_ROUTING_TRANSFER_KEY }}
