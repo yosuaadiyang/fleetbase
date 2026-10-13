@@ -22,7 +22,9 @@ Changes:
   over a pending older selection. Unsupported inactive translation hydration does
   not report a misleading MISSING_DATA error.
 - Fingerprinted assets receive immutable caching; HTML and runtime/extension
-  manifests stay fresh. Nginx version disclosure is disabled.
+  manifests stay fresh. Missing assets do not get immutable caching. Nginx
+  version disclosure is disabled. Retain the previous fingerprinted assets when
+  packaging a release so tabs opened before deployment can finish loading them.
 - Caddy supplies HSTS, nosniff, referrer/permissions policy and same-origin framing
   protection. Only `frame-ancestors` is an enforced CSP. The broader resource CSP
   remains Report-Only pending authenticated module verification.
