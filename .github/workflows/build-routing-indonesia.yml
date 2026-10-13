@@ -5,6 +5,11 @@ on:
     branches: [fix/contrust-deployment-audit]
     paths: [.github/workflows/build-routing-indonesia.yml]
   workflow_dispatch:
+    inputs:
+      require_cached_graph:
+        description: 'Transfer an already validated cached graph; fail instead of rebuilding if absent'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -30,6 +35,11 @@ jobs:
             indonesia-osrm-20261012.tar.gz
             indonesia-osrm-20261012.tar.gz.sha256
           key: indonesia-osrm-261012-mld-55dbfd47-v1
+      - name: Require a validated graph for transfer-only runs
+        if: ${{ inputs.require_cached_graph && steps.graph-cache.outputs.cache-hit != 'true' }}
+        run: |
+          echo 'No validated graph cache is available; transfer-only run will not rebuild.' >&2
+          exit 1
       - name: Verify restored archive
         if: ${{ steps.graph-cache.outputs.cache-hit == 'true' }}
         run: sha256sum --check indonesia-osrm-20261012.tar.gz.sha256
