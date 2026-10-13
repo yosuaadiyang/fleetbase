@@ -1,0 +1,40 @@
+# Activate only after a complete MLD graph has passed route and memory checks.
+# Add this file to COMPOSE_FILE alongside the existing production files.
+services:
+  routing:
+    image: ghcr.io/project-osrm/osrm-backend@sha256:55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f
+    command: ["osrm-routed", "--algorithm", "mld", "--mmap", "--threads", "2", "--max-viaroute-size", "100", "--max-table-size", "100", "--max-matching-size", "100", "--max-trip-size", "100", "/data/indonesia.osrm"]
+    restart: unless-stopped
+    mem_limit: 1536m
+    cpus: 1.5
+    pids_limit: 128
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ${OSRM_DATA_DIR:-./docker/routing/data}:/data:ro
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  routing-proxy:
+    image: nginx:alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    volumes:
+      - ./docker/routing/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [routing]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  application:
+    environment:
+      OSRM_HOST: http://routing:5000
+  queue:
+    environment:
+      OSRM_HOST: http://routing:5000
+  scheduler:
+    environment:
+      OSRM_HOST: http://routing:5000

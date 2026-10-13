@@ -25,6 +25,7 @@ ENV DISABLE_FLEETBASE_ATTRIBUTION=$DISABLE_FLEETBASE_ATTRIBUTION
 RUN npm install -g ember-cli pnpm
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 COPY .npmr[c] ./
 
 RUN pnpm install --frozen-lockfile

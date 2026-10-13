@@ -23,3 +23,8 @@ minimumReleaseAgeExclude:
   - '@fleetbase/ledger-engine@0.0.12'
   - '@fleetbase/iam-engine@0.1.13'
   - '@fleetbase/dev-engine@0.2.17'
+patchedDependencies:
+  '@fleetbase/customer-portal-engine@0.0.15': patches/@fleetbase__customer-portal-engine@0.0.15.patch
+  '@fleetbase/ember-core@0.3.25': patches/@fleetbase__ember-core@0.3.25.patch
+  '@fleetbase/fleetops-data@0.2.2': patches/@fleetbase__fleetops-data@0.2.2.patch
+  '@fleetbase/fleetops-engine@0.6.71': patches/@fleetbase__fleetops-engine@0.6.71.patch

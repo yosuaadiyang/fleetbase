@@ -284,14 +284,14 @@ module('Unit | Controller | auth/two-fa | verification flow', function (hooks) {
         assert.deepEqual(this.transitions, ['auth.login']);
     });
 
-    test('convertUtcToClientTime shifts a UTC stamp by the local offset', function (assert) {
+    test('convertUtcToClientTime preserves a zoned UTC instant', function (assert) {
         const controller = this.build();
         const utc = '2026-03-01T12:00:00Z';
 
         const converted = controller.convertUtcToClientTime(utc);
 
         assert.true(converted instanceof Date);
-        assert.strictEqual(converted.getTime(), new Date(utc).getTime() - new Date().getTimezoneOffset() * 60 * 1000);
+        assert.strictEqual(converted.getTime(), new Date(utc).getTime());
     });
 });
 

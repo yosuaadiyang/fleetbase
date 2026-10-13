@@ -245,11 +245,18 @@ module('Unit | Controller | auth/login', function (hooks) {
     });
 
     test('forgotPassword carries a known email across to that controller', async function (assert) {
-        this.controller.email = 'ron@fleetbase.io';
+        this.controller.identity = 'ron@fleetbase.io';
 
         await this.controller.forgotPassword();
 
         assert.strictEqual(this.controller.forgotPasswordController.email, 'ron@fleetbase.io');
+    });
+
+    test('forgotPassword clears an earlier reset email when login is empty', async function (assert) {
+        this.controller.forgotPasswordController.email = 'earlier@example.invalid';
+        this.controller.identity = null;
+        await this.controller.forgotPassword();
+        assert.strictEqual(this.controller.forgotPasswordController.email, '');
     });
 
     test('slowConnection reports the slow connection message', function (assert) {

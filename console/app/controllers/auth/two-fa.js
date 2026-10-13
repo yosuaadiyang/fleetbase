@@ -2,6 +2,7 @@ import Controller from '@ember/controller';
 import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { inject as service } from '@ember/service';
+import clientTokenExpiry, { parseUtcDateTime } from '@fleetbase/ember-core/utils/client-token-expiry';
 
 /**
  * Controller responsible for handling two-factor authentication.
@@ -289,47 +290,17 @@ export default class AuthTwoFaController extends Controller {
      * @returns {Date|null} - Date representing the expiration date, or null if invalid.
      */
     getExpirationDateFromClientToken(clientToken) {
-        if (!clientToken || typeof clientToken !== 'string') {
-            return null;
-        }
-
-        const decoder = new TextDecoder();
-        let binString;
-        try {
-            binString = atob(clientToken);
-        } catch {
-            return null;
-        }
-        const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
-        const decodedString = decoder.decode(bytes);
-
-        if (typeof decodedString === 'string' && decodedString.includes('|')) {
-            const parts = decodedString.split('|');
-            const expiresAt = this.convertUtcToClientTime(parts[0]);
-
-            // convertUtcToClientTime always hands back a Date, so an `instanceof Date`
-            // check could never fail: an unparseable stamp produced an Invalid Date that
-            // reached twoFactorSessionExpiresAfter and rendered the countdown as NaN.
-            // Only a usable date is an expiry; anything else falls through to null.
-            if (!Number.isNaN(expiresAt.getTime())) {
-                return expiresAt;
-            }
-        }
-
-        return null;
+        return clientTokenExpiry(clientToken);
     }
 
     /**
-     * Converts a UTC date-time string to client time zone.
+     * Parses a UTC timestamp without changing the represented instant.
      *
      * @method convertUtcToClientTime
      * @param {string} utcDateTimeString - UTC date-time string.
-     * @returns {Date} - Date in client time zone.
+     * @returns {Date} - Expiry instant, or Invalid Date when malformed.
      */
     convertUtcToClientTime(utcDateTimeString) {
-        const utcDate = new Date(utcDateTimeString);
-        const clientTimezoneOffset = new Date().getTimezoneOffset();
-        const clientDate = new Date(utcDate.getTime() - clientTimezoneOffset * 60 * 1000);
-        return clientDate;
+        return parseUtcDateTime(utcDateTimeString) ?? new Date(NaN);
     }
 }

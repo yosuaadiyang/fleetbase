@@ -204,10 +204,9 @@ export default class AuthLoginController extends Controller {
      * Transition to forgot password screen, if email is set - set it.
      */
     @action forgotPassword() {
+        const email = this.identity ?? '';
         return this.router.transitionTo('auth.forgot-password').then(() => {
-            if (this.email) {
-                this.forgotPasswordController.email = this.email;
-            }
+            this.forgotPasswordController.email = email;
         });
     }
 

@@ -23,6 +23,15 @@ module('Integration | Component | onboarding/form', function (hooks) {
         assert.dom('button[type="submit"]').isDisabled('submitting is blocked until every field is filled');
     });
 
+    test('signup fields tell password managers which values to use', async function (assert) {
+        await render(hbs`<Onboarding::Form />`);
+        assert.dom('input[type="email"]').hasAttribute('autocomplete', 'email');
+        assert.dom('input[type="tel"]').hasAttribute('autocomplete', 'tel');
+        assert.dom('input[autocomplete="name"]').exists();
+        assert.dom('input[autocomplete="organization"]').exists();
+        assert.strictEqual(this.element.querySelectorAll('input[type="password"][autocomplete="new-password"]').length, 2);
+    });
+
     test('the phone number is required before the form can be submitted', async function (assert) {
         await render(hbs`<Onboarding::Form />`);
 

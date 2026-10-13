@@ -1,5 +1,9 @@
 import translations from 'ember-intl/translations';
 import { all } from 'rsvp';
+import { shouldPolyfill as numberFormatNeedsPolyfill } from '@formatjs/intl-numberformat/should-polyfill';
+import { shouldPolyfill as pluralRulesNeedsPolyfill } from '@formatjs/intl-pluralrules/should-polyfill';
+import { shouldPolyfill as dateTimeFormatNeedsPolyfill } from '@formatjs/intl-datetimeformat/should-polyfill';
+import { shouldPolyfill as relativeTimeFormatNeedsPolyfill } from '@formatjs/intl-relativetimeformat/should-polyfill';
 
 const isBrowser = typeof window !== 'undefined';
 const isValidLang = (lang) => typeof lang === 'string' && /^[a-z]{2,3}$/i.test(lang);
@@ -11,13 +15,24 @@ function langOf(tag = 'en') {
     return String(tag).toLowerCase().split('-')[0];
 }
 
-// The polyfills always replace native Intl: browsers lack data for some of the console's
-// languages (Mongolian, for one), and ember-intl refuses to start without it.
-async function loadBasePolyfills() {
-    await import('@formatjs/intl-numberformat/polyfill-force');
-    await import('@formatjs/intl-pluralrules/polyfill-force');
-    await import('@formatjs/intl-datetimeformat/polyfill-force');
-    await import('@formatjs/intl-relativetimeformat/polyfill-force');
+const DETECTORS = {
+    NumberFormat: numberFormatNeedsPolyfill,
+    PluralRules: pluralRulesNeedsPolyfill,
+    DateTimeFormat: dateTimeFormatNeedsPolyfill,
+    RelativeTimeFormat: relativeTimeFormatNeedsPolyfill,
+};
+
+export function requiredPolyfills(langs, detectors = DETECTORS) {
+    const languages = langs.length ? langs : ['en'];
+    return Object.keys(detectors).filter((name) => languages.some((lang) => Boolean(detectors[name](lang))));
+}
+
+async function loadBasePolyfills(required) {
+    // Load implementations only when the active language needs them.
+    if (required.includes('NumberFormat')) await import('@formatjs/intl-numberformat/polyfill-force');
+    if (required.includes('PluralRules')) await import('@formatjs/intl-pluralrules/polyfill-force');
+    if (required.includes('DateTimeFormat')) await import('@formatjs/intl-datetimeformat/polyfill-force');
+    if (required.includes('RelativeTimeFormat')) await import('@formatjs/intl-relativetimeformat/polyfill-force');
 }
 
 /**
@@ -46,18 +61,36 @@ export function pinDefaultLocale(lang, intl = Intl) {
     }
 }
 
-async function loadLocaleData(lang) {
+async function loadLocaleData(lang, required) {
     // initialize() already filters the language list through isValidLang, so this is a
     // second line of defence that the initializer itself can never trigger.
     /* istanbul ignore next -- unreachable via initialize() */
     if (!isValidLang(lang)) return;
 
-    return all([
-        import(`@formatjs/intl-numberformat/locale-data/${lang}.js`),
-        import(`@formatjs/intl-pluralrules/locale-data/${lang}.js`),
-        import(`@formatjs/intl-datetimeformat/locale-data/${lang}.js`),
-        import(`@formatjs/intl-relativetimeformat/locale-data/${lang}.js`),
-    ]);
+    const loads = [];
+    if (required.includes('NumberFormat')) loads.push(import(`@formatjs/intl-numberformat/locale-data/${lang}.js`));
+    if (required.includes('PluralRules')) loads.push(import(`@formatjs/intl-pluralrules/locale-data/${lang}.js`));
+    if (required.includes('DateTimeFormat')) loads.push(import(`@formatjs/intl-datetimeformat/locale-data/${lang}.js`));
+    if (required.includes('RelativeTimeFormat')) loads.push(import(`@formatjs/intl-relativetimeformat/locale-data/${lang}.js`));
+    return all(loads);
+}
+
+let pendingPolyfills = Promise.resolve();
+
+export function ensureIntlLocales(locales = ['en']) {
+    const selected = (Array.isArray(locales) ? locales : [locales]).map(langOf).filter(isValidLang);
+    // Serializing avoids competing locale changes overwriting Intl constructors.
+    pendingPolyfills = pendingPolyfills
+        .catch(() => {})
+        .then(async () => {
+            const required = requiredPolyfills(selected);
+            if (!required.length) return;
+            await loadBasePolyfills(required);
+            const available = [...new Set(['en', ...translations.map(([locale]) => langOf(locale)), ...selected])].filter(isValidLang);
+            await all(available.map((lang) => loadLocaleData(lang, required)));
+            pinDefaultLocale(preferredLanguage(available, window.navigator.languages));
+        });
+    return pendingPolyfills;
 }
 
 export function initialize(application) {
@@ -72,8 +105,9 @@ export function initialize(application) {
     application.deferReadiness();
 
     (async () => {
-        await loadBasePolyfills();
-        await all(langs.map(loadLocaleData));
+        // The application starts in English; missing extension languages are
+        // loaded by the intl service before that locale is selected.
+        await ensureIntlLocales(['en', preferredLanguage(langs, window.navigator.languages)]);
         pinDefaultLocale(preferredLanguage(langs, window.navigator.languages));
         application.advanceReadiness();
     })();

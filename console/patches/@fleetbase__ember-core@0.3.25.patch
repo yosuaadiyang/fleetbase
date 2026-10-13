@@ -1,0 +1,141 @@
+diff --git a/addon/services/session.js b/addon/services/session.js
+index 0f21be472c1825a64a73c6a1599c11c5761d5a50..90bb1bef9e964febde2fe35864c23bf051c239e8 100644
+--- a/addon/services/session.js
++++ b/addon/services/session.js
+@@ -107,7 +107,7 @@ export default class SessionService extends SimpleAuthSessionService {
+                 this,
+                 () => {
+                     // remove node from body
+-                    document.body.removeChild(loaderNode);
++                    loaderNode.remove();
+                     this.isLoaderNodeOpen = false;
+                 },
+                 600 * 3
+@@ -222,8 +222,10 @@ export default class SessionService extends SimpleAuthSessionService {
+                 </svg>
+             </div>
+ 
+-            <span class="font-semibold text-gray-700 dark:text-gray-100 test-sm">${loadingMessage}</span>
++            <span class="font-semibold text-gray-700 dark:text-gray-100 text-sm" data-session-loader-message></span>
+         </div>`;
++        loader.setAttribute('role', 'status');
++        loader.querySelector('[data-session-loader-message]').textContent = String(loadingMessage ?? '');
+         document.body.appendChild(loader);
+ 
+         return loader;
+@@ -244,16 +246,12 @@ export default class SessionService extends SimpleAuthSessionService {
+         const loaderNode = this.showLoader(loadingMessage);
+         this.isLoaderNodeOpen = true;
+ 
+-        return this.session.invalidate().then(() => {
+-            later(
+-                this,
+-                () => {
+-                    document.body.removeChild(loaderNode);
+-                    this.isLoaderNodeOpen = false;
+-                },
+-                600
+-            );
+-        });
++        return Promise.resolve()
++            .then(() => this.session.invalidate())
++            .finally(() => {
++                loaderNode.remove();
++                this.isLoaderNodeOpen = false;
++            });
+     }
+ 
+     /**
+diff --git a/addon/utils/client-token-expiry.js b/addon/utils/client-token-expiry.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..0df99d5df7c9d09a5cf70de1aedbd7f839205721
+--- /dev/null
++++ b/addon/utils/client-token-expiry.js
+@@ -0,0 +1,45 @@
++/** Parse both legacy Carbon UTC strings and explicitly zoned ISO timestamps. */
++export function parseUtcDateTime(value) {
++    if (typeof value !== 'string') {
++        return null;
++    }
++
++    const timestamp = value.trim();
++    const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(\.\d{1,3})?(Z|[+-]\d{2}:?\d{2})?$/);
++    if (!match) {
++        return null;
++    }
++
++    const [, year, month, day, hour, minute, second, fraction = '', zone = 'Z'] = match;
++    const calendar = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}${fraction}Z`);
++    if (
++        Number.isNaN(calendar.getTime()) ||
++        calendar.getUTCFullYear() !== Number(year) ||
++        calendar.getUTCMonth() + 1 !== Number(month) ||
++        calendar.getUTCDate() !== Number(day) ||
++        calendar.getUTCHours() !== Number(hour) ||
++        calendar.getUTCMinutes() !== Number(minute) ||
++        calendar.getUTCSeconds() !== Number(second)
++    ) {
++        return null;
++    }
++
++    // Carbon's existing token format has no zone; it represents server UTC.
++    const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}${fraction}${zone}`);
++    return Number.isNaN(date.getTime()) ? null : date;
++}
++
++export default function clientTokenExpiry(token) {
++    if (typeof token !== 'string' || token.length === 0) {
++        return null;
++    }
++
++    try {
++        const bytes = Uint8Array.from(atob(token), (character) => character.codePointAt(0));
++        const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
++        const delimiter = decoded.indexOf('|');
++        return delimiter > 0 ? parseUtcDateTime(decoded.slice(0, delimiter)) : null;
++    } catch {
++        return null;
++    }
++}
+diff --git a/addon/utils/is-latitude.js b/addon/utils/is-latitude.js
+index 38c123631eed7199fd97a8b4c557e77680920b3c..7eaf8d9243d88b23a10225611bdfce99a26a9fad 100644
+--- a/addon/utils/is-latitude.js
++++ b/addon/utils/is-latitude.js
+@@ -1,3 +1,4 @@
+ export default function isLatitude(coordinate) {
+-    return isFinite(coordinate) && Math.abs(coordinate) <= 90;
++    const number = typeof coordinate === 'number' ? coordinate : typeof coordinate === 'string' && coordinate.trim() !== '' ? Number(coordinate) : NaN;
++    return Number.isFinite(number) && Math.abs(number) <= 90;
+ }
+diff --git a/addon/utils/is-longitude.js b/addon/utils/is-longitude.js
+index 261496fe1f6c8525e78e7bbeba93b543cb551d1f..a18d1c661b076e270bc34591e29e28da2fe2b626 100644
+--- a/addon/utils/is-longitude.js
++++ b/addon/utils/is-longitude.js
+@@ -1,3 +1,4 @@
+ export default function isLongitude(coordinate) {
+-    return isFinite(coordinate) && Math.abs(coordinate) <= 180;
++    const number = typeof coordinate === 'number' ? coordinate : typeof coordinate === 'string' && coordinate.trim() !== '' ? Number(coordinate) : NaN;
++    return Number.isFinite(number) && Math.abs(number) <= 180;
+ }
+diff --git a/addon/utils/is-valid-coordinates.js b/addon/utils/is-valid-coordinates.js
+index d07de335fe3ad427e6bb34420185d4469d8fea6c..207be7da19b93afa38b69796ed891b35a80fd97f 100644
+--- a/addon/utils/is-valid-coordinates.js
++++ b/addon/utils/is-valid-coordinates.js
+@@ -25,8 +25,8 @@ export default function isValidCoordinates(latitude, longitude = null) {
+     }
+ 
+     if (!isArray(latitude) && isObject(latitude) && longitude === null) {
+-        testLatitude = latitude.lat || latitude.latitude;
+-        testLongitude = latitude.lng || latitude.longitude;
++        testLatitude = latitude.lat ?? latitude.latitude;
++        testLongitude = latitude.lng ?? latitude.longitude;
+     }
+ 
+     if (longitude !== null) {
+diff --git a/app/utils/client-token-expiry.js b/app/utils/client-token-expiry.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..225a6698089748ab2d009372d5a7bff5a92b976a
+--- /dev/null
++++ b/app/utils/client-token-expiry.js
+@@ -0,0 +1 @@
++export { default, parseUtcDateTime } from '@fleetbase/ember-core/utils/client-token-expiry';

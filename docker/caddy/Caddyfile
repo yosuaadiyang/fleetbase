@@ -13,13 +13,34 @@
 	email {$ACME_EMAIL}
 }
 
+(contrust_response_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+(contrust_console_headers) {
+	import contrust_response_headers
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		Content-Security-Policy "frame-ancestors 'self'"
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-src 'self' https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'"
+		Permissions-Policy "geolocation=(self), camera=(self), microphone=(self)"
+	}
+}
+
 {$CONSOLE_DOMAIN} {
 	encode zstd gzip
+	import contrust_console_headers
 	reverse_proxy console:4200
 }
 
 {$API_DOMAIN} {
 	encode zstd gzip
+	import contrust_response_headers
 
 	# Real-time events. The console connects to wss://{$API_DOMAIN}/socketcluster/,
 	# so the socket server needs no port or certificate of its own.

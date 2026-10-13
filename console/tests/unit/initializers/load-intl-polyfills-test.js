@@ -1,7 +1,19 @@
 import { module, test } from 'qunit';
-import { initialize, pinDefaultLocale, preferredLanguage } from '@fleetbase/console/initializers/load-intl-polyfills';
+import { initialize, pinDefaultLocale, preferredLanguage, requiredPolyfills } from '@fleetbase/console/initializers/load-intl-polyfills';
 
 module('Unit | Initializer | load-intl-polyfills', function () {
+    test('native support keeps all polyfill implementations and locale chunks out of startup', function (assert) {
+        assert.deepEqual(requiredPolyfills(['en', 'mn'], { NumberFormat: () => undefined, PluralRules: () => undefined }), []);
+    });
+
+    test('a missing extension locale loads only the affected formatter', function (assert) {
+        assert.deepEqual(requiredPolyfills(['en', 'mn'], { NumberFormat: () => undefined, PluralRules: (lang) => (lang === 'mn' ? lang : undefined) }), ['PluralRules']);
+    });
+
+    test('an empty manifest still checks the English fallback', function (assert) {
+        assert.deepEqual(requiredPolyfills([], { NumberFormat: (lang) => lang }), ['NumberFormat']);
+    });
+
     test('it defers readiness while the polyfills load and advances afterwards', async function (assert) {
         const calls = [];
         let advanced;
@@ -63,8 +75,7 @@ module('Unit | Initializer | load-intl-polyfills | default locale', function () 
 
         assert.strictEqual(language(new Intl.NumberFormat().resolvedOptions().locale), browser);
         assert.strictEqual(language(new Intl.DateTimeFormat().resolvedOptions().locale), browser);
-        // Every console language still has data, which ember-intl needs to start.
-        assert.strictEqual(Intl.NumberFormat.supportedLocalesOf(['mn']).length, 1);
+        assert.strictEqual(Intl.NumberFormat.supportedLocalesOf(['en']).length, 1);
     });
 
     test('with no browser languages it falls back to English', function (assert) {

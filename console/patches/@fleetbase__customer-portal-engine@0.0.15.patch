@@ -1,0 +1,68 @@
+diff --git a/addon/controllers/portal-auth/login.js b/addon/controllers/portal-auth/login.js
+index 8583befa968226ee8c1a353cb84072ba624f332a..dd82d6d40ad96428b88f12966ea855aefc943b1b 100644
+--- a/addon/controllers/portal-auth/login.js
++++ b/addon/controllers/portal-auth/login.js
+@@ -172,10 +172,9 @@ export default class PortalAuthLoginController extends Controller {
+      * Transition to forgot password screen, if email is set - set it.
+      */
+     @action forgotPassword() {
++        const email = this.identity ?? '';
+         return this.hostRouter.transitionTo('customer-portal.portal-auth.forgot-password').then(() => {
+-            if (this.email) {
+-                this.forgotPasswordController.email = this.email;
+-            }
++            this.forgotPasswordController.email = email;
+         });
+     }
+ 
+diff --git a/addon/controllers/portal-auth/two-fa.js b/addon/controllers/portal-auth/two-fa.js
+index 68bbdac65e7c5190a5eece1afb8be4bd55d6efe3..d913768052769e430f2242d0d4dbc932e4ae921b 100644
+--- a/addon/controllers/portal-auth/two-fa.js
++++ b/addon/controllers/portal-auth/two-fa.js
+@@ -2,6 +2,7 @@ import Controller from '@ember/controller';
+ import { tracked } from '@glimmer/tracking';
+ import { action } from '@ember/object';
+ import { inject as service } from '@ember/service';
++import clientTokenExpiry, { parseUtcDateTime } from '@fleetbase/ember-core/utils/client-token-expiry';
+ 
+ const CUSTOMER_PORTAL_NAMESPACE = 'customer-portal/int/v1';
+ 
+@@ -210,34 +211,17 @@ export default class PortalAuthTwoFaController extends Controller {
+      * @returns {Date|null} - Date representing the expiration date, or null if invalid.
+      */
+     getExpirationDateFromClientToken(clientToken) {
+-        const decoder = new TextDecoder();
+-        const binString = atob(clientToken);
+-        const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
+-        const decodedString = decoder.decode(bytes);
+-
+-        if (typeof decodedString === 'string' && decodedString.includes('|')) {
+-            const parts = decodedString.split('|');
+-            const expiresAt = this.convertUtcToClientTime(parts[0]);
+-
+-            if (expiresAt instanceof Date) {
+-                return expiresAt;
+-            }
+-        }
+-
+-        return null;
++        return clientTokenExpiry(clientToken);
+     }
+ 
+     /**
+-     * Converts a UTC date-time string to client time zone.
++     * Parses a UTC timestamp without changing the represented instant.
+      *
+      * @method convertUtcToClientTime
+      * @param {string} utcDateTimeString - UTC date-time string.
+-     * @returns {Date} - Date in client time zone.
++     * @returns {Date} - Expiry instant, or Invalid Date when malformed.
+      */
+     convertUtcToClientTime(utcDateTimeString) {
+-        const utcDate = new Date(utcDateTimeString);
+-        const clientTimezoneOffset = new Date().getTimezoneOffset();
+-        const clientDate = new Date(utcDate.getTime() - clientTimezoneOffset * 60 * 1000);
+-        return clientDate;
++        return parseUtcDateTime(utcDateTimeString) ?? new Date(NaN);
+     }
+ }

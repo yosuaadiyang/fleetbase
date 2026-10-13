@@ -1,0 +1,55 @@
+diff --git a/addon/components/order-tracking-lookup.js b/addon/components/order-tracking-lookup.js
+index 8067095f1e41a27319f276be856c174e687ed114..6e233d92c6fa84544ddb0dd7266252f87a15c7e6 100644
+--- a/addon/components/order-tracking-lookup.js
++++ b/addon/components/order-tracking-lookup.js
+@@ -9,6 +9,7 @@ import { debug } from '@ember/debug';
+ import { task } from 'ember-concurrency';
+ import { OSRMv1, Control as RoutingControl } from '@fleetbase/leaflet-routing-machine';
+ import getRoutingHost from '@fleetbase/ember-core/utils/get-routing-host';
++import isValidCoordinates from '@fleetbase/ember-core/utils/is-valid-coordinates';
+ import engineService from '@fleetbase/ember-core/decorators/engine-service';
+ import { DEFAULT_LEAFLET_TILE_URL } from '../utils/leaflet-tile-url';
+ 
+@@ -40,11 +41,11 @@ export default class OrderTrackingLookupComponent extends Component {
+             this.lookupOrder.perform();
+         }
+ 
+-        this.location.getUserLocation().then(({ latitude, longitude }) => {
+-            this.latitude = latitude;
+-            this.longitude = longitude;
+-            this.mapReady = true;
+-        });
++        // Public tracking does not need the operator's private fleet location.
++        // The lookup result replaces this center with the order/driver location.
++        this.latitude = this.location.getLatitude();
++        this.longitude = this.location.getLongitude();
++        this.mapReady = true;
+     }
+ 
+     @task *lookupOrder() {
+@@ -183,18 +184,21 @@ export default class OrderTrackingLookupComponent extends Component {
+     }
+ 
+     getRouteCoordinatesFromOrder(order) {
+-        const payload = order.payload;
++        const payload = order?.payload;
++        if (!payload) {
++            return [];
++        }
+         const waypoints = [];
+         const coordinates = [];
+ 
+-        waypoints.pushObjects([payload.pickup, ...payload.waypoints.toArray(), payload.dropoff]);
++        waypoints.pushObjects([payload.pickup, ...(payload.waypoints?.toArray?.() ?? payload.waypoints ?? []), payload.dropoff]);
+         waypoints.forEach((place) => {
+-            if (place && place.get('longitude') && place.get('latitude')) {
++            if (place && isValidCoordinates(place.get('latitude'), place.get('longitude'))) {
+                 if (place.hasInvalidCoordinates) {
+                     return;
+                 }
+ 
+-                coordinates.pushObject([place.get('latitude'), place.get('longitude')]);
++                coordinates.pushObject([Number(place.get('latitude')), Number(place.get('longitude'))]);
+             }
+         });
+ 

@@ -1,0 +1,56 @@
+diff --git a/addon/models/payload.js b/addon/models/payload.js
+index d69da876f602c66a0d1bbced5c5230877c77e0d8..265642d2851dbc129dc919108a9b0c92ed89f90d 100644
+--- a/addon/models/payload.js
++++ b/addon/models/payload.js
+@@ -2,6 +2,7 @@ import Model, { attr, belongsTo, hasMany } from '@ember-data/model';
+ import { computed } from '@ember/object';
+ import { notEmpty } from '@ember/object/computed';
+ import { format as formatDate, isValid as isValidDate, formatDistanceToNow } from 'date-fns';
++import isValidCoordinates from '@fleetbase/ember-core/utils/is-valid-coordinates';
+ 
+ export default class PayloadModel extends Model {
+     /** @ids */
+@@ -129,12 +130,12 @@ export default class PayloadModel extends Model {
+ 
+         waypoints.pushObjects([this.pickup, ...this.waypoints.toArray(), this.dropoff]);
+         waypoints.forEach((place) => {
+-            if (place && place.get('longitude') && place.get('latitude')) {
++            if (place && isValidCoordinates(place.get('latitude'), place.get('longitude'))) {
+                 if (place.hasInvalidCoordinates) {
+                     return;
+                 }
+ 
+-                coordinates.pushObject([place.get('longitude'), place.get('latitude')]);
++                coordinates.pushObject([Number(place.get('longitude')), Number(place.get('latitude'))]);
+             }
+         });
+ 
+@@ -147,12 +148,12 @@ export default class PayloadModel extends Model {
+ 
+         waypoints.pushObjects([this.pickup, ...this.waypoints.toArray(), this.dropoff]);
+         waypoints.forEach((place) => {
+-            if (place && place.get('longitude') && place.get('latitude')) {
++            if (place && isValidCoordinates(place.get('latitude'), place.get('longitude'))) {
+                 if (place.hasInvalidCoordinates) {
+                     return;
+                 }
+ 
+-                coordinates.pushObject([place.get('latitude'), place.get('longitude')]);
++                coordinates.pushObject([Number(place.get('latitude')), Number(place.get('longitude'))]);
+             }
+         });
+ 
+diff --git a/addon/models/place.js b/addon/models/place.js
+index c1488070b352db778de511be65f8a61957107c2e..fc2b7764ae86b3bc8bc125ac53faa99585a68455 100644
+--- a/addon/models/place.js
++++ b/addon/models/place.js
+@@ -128,7 +128,8 @@ export default class PlaceModel extends Model {
+     }
+ 
+     @computed('coordinates', 'latitude', 'longitude') get hasValidCoordinates() {
+-        if (this.longitude === 0 || this.latitude === 0) {
++        // (0, 0) is the model's unset-location placeholder; a single zero is valid.
++        if (this.longitude === 0 && this.latitude === 0) {
+             return false;
+         }
+ 
