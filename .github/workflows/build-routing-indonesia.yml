@@ -1,0 +1,101 @@
+name: Prepare Indonesia routing (manual trial)
+
+on:
+  push:
+    branches: [fix/contrust-deployment-audit]
+    paths: [.github/workflows/build-routing-indonesia.yml]
+  workflow_dispatch:
+    inputs:
+      upload_graph:
+        description: 'Upload graph for 1 day; check artifact storage quota/budget first'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indonesia-routing-preparation
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      OSRM_IMAGE: ghcr.io/project-osrm/osrm-backend@sha256:55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f
+    steps:
+      - name: Prepare and validate graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          free -h
+          df -h .
+          mkdir data
+          curl -fL --retry 3 https://download.geofabrik.de/asia/indonesia-261012.osm.pbf -o data/indonesia.osm.pbf
+          curl -fL --retry 3 https://download.geofabrik.de/asia/indonesia-261012.osm.pbf.md5 -o data/indonesia.osm.pbf.md5
+          python3 - <<'PY'
+          import hashlib,pathlib
+          p=pathlib.Path('data');h=hashlib.md5()
+          with (p/'indonesia.osm.pbf').open('rb') as f:
+              for b in iter(lambda:f.read(8*1024*1024),b''):h.update(b)
+          assert h.hexdigest()==(p/'indonesia.osm.pbf.md5').read_text().split()[0]
+          PY
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends osmium-tool
+          osmium tags-filter data/indonesia.osm.pbf nw/highway w/route w/railway r/type=restriction r/type=route -o data/indonesia.routing.osm.pbf --output-header=osmosis_replication_timestamp!
+          for stage in extract partition customize; do
+            args=("osrm-$stage" --threads 2 /data/indonesia.osrm)
+            if [ "$stage" = extract ]; then
+              args=(osrm-extract --threads 2 --profile /opt/car.lua /data/indonesia.routing.osm.pbf --output /data/indonesia.osrm)
+            fi
+            docker run --rm --memory=14g --memory-swap=16g --cpus=4 -v "$PWD/data:/data" "$OSRM_IMAGE" "${args[@]}"
+          done
+          docker run --rm --memory=1536m -v "$PWD/data:/data:ro" "$OSRM_IMAGE" osrm-routed --algorithm mld --mmap --threads 2 --trial /data/indonesia.osrm
+          docker run -d --name routing-validation --memory=1536m --cpus=1.5 -p 127.0.0.1:5000:5000 -v "$PWD/data:/data:ro" "$OSRM_IMAGE" osrm-routed --algorithm mld --mmap --threads 2 /data/indonesia.osrm
+          trap 'docker rm -f routing-validation' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS 'http://127.0.0.1:5000/nearest/v1/driving/106.8272,-6.1754' >/dev/null; then break; fi
+            sleep 1
+          done
+          python3 - <<'PY'
+          import json,urllib.request,pathlib,time
+          cases={
+              'Jakarta':'106.8272,-6.1754;106.8456,-6.2088',
+              'Medan':'98.6722,3.5952;98.6837,3.5894',
+              'Surabaya':'112.7521,-7.2575;112.7378,-7.2458',
+              'Bali':'115.2126,-8.6705;115.2235,-8.6557',
+              'Pontianak':'109.3435,-0.0263;109.3545,-0.0315',
+              'Makassar':'119.4327,-5.1477;119.4369,-5.1341',
+              'Jayapura':'140.7181,-2.5337;140.6975,-2.5620',
+          }
+          results=[]
+          for city,coordinates in cases.items():
+              start=time.monotonic()
+              with urllib.request.urlopen('http://127.0.0.1:5000/route/v1/driving/'+coordinates+'?overview=false',timeout=10) as r:data=json.load(r)
+              assert data['code']=='Ok' and data['routes'],(city,data)
+              assert all(w['distance']<2000 for w in data['waypoints']),(city,'snap distance too large')
+              results.append({'city':city,'elapsed_ms':round((time.monotonic()-start)*1000),'distance_m':data['routes'][0]['distance']})
+          pathlib.Path('data/route-validation.json').write_text(json.dumps(results,indent=2))
+          print(json.dumps(results,indent=2))
+          PY
+          docker stats --no-stream routing-validation
+          du -sh data
+          printf 'Graph built and representative queries passed. Runtime capacity still needs verification on the VPS.\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: Package graph (explicit storage opt-in)
+        if: ${{ inputs.upload_graph }}
+        run: |
+          tar --exclude='*.osm.pbf' --exclude='*.md5' -czf indonesia-osrm-20261012.tar.gz -C data .
+          sha256sum indonesia-osrm-20261012.tar.gz > indonesia-osrm-20261012.tar.gz.sha256
+      - name: Upload graph (one day)
+        if: ${{ inputs.upload_graph }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: indonesia-osrm-20261012
+          path: |
+            indonesia-osrm-20261012.tar.gz
+            indonesia-osrm-20261012.tar.gz.sha256
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
