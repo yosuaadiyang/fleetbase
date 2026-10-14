@@ -50,9 +50,12 @@ $cases = [
     ['TwoFaValidationRequest', ['token'=>['array'], 'identity'=>'qa@example.test'], false],
     ['LoginRequest', ['identity'=>'qa@example.test', 'password'=>'fake-test'], true],
     ['LoginRequest', ['identity'=>'+6281234567890', 'password'=>'fake-test'], true],
+    ['LoginRequest', ['identity'=>'qa@example.test', 'authToken'=>'fixture-session-token'], true],
+    ['LoginRequest', ['identity'=>'qa@example.test', 'authToken'=>['wrong-type']], false],
+    ['LoginRequest', ['identity'=>'qa@example.test', 'authToken'=>''], false],
 ];
 $failures=0;
-$invalidFields=['identity','user.name','token','identity','password','identity','password','user.name','company.name','token'];
+$invalidFields=[0=>'identity',1=>'user.name',2=>'token',3=>'identity',4=>'password',5=>'identity',6=>'password',7=>'user.name',8=>'company.name',9=>'token',13=>'authToken',14=>'password'];
 foreach ($cases as $index=>[$class,$input,$expectedValid]) {
     $class='Fleetbase\\Http\\Requests\\'.$class;
     $request=$class::create('/int/v1/auth/login','POST',$input);

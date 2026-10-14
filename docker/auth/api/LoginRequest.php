@@ -46,7 +46,10 @@ class LoginRequest extends FleetbaseRequest
             // Validation of identity existence is handled in the controller with
             // a generic error message to prevent information leakage.
             'identity' => ['required', 'string'],
-            'password' => ['required', 'string'],
+            // The console establishes its session with the token issued by the
+            // first password login; it intentionally does not resend the password.
+            'password' => ['required_without:authToken', 'nullable', 'string'],
+            'authToken' => ['nullable', 'string'],
         ];
     }
 

@@ -17,22 +17,22 @@ The latter contains the API key and must not be published. Provider setup
 uses HTTPS with certificate verification, redirects disabled, 15-second idle
 timeout and 20-second total timeout. Transport string contains no key.
 
-Build auth candidate first using docker/auth/Dockerfile. Build Brevo candidate
-from repository root with:
+Build the complete production image from repository root:
 
 ```sh
-docker build --network=none -f docker/brevo/Dockerfile -t contrust-api:brevo-audit-20261014 .
+docker build --network=none -f docker/brevo/Dockerfile -t contrust-api:login-brevo-20261014 .
 ```
 
-The auth candidate is built from the pinned production base and retains the
-routing fix. Check its image identity before this build. The Brevo build
-rejects a different AppServiceProvider checksum and exercises real Symfony
-MIME/envelope/attachments with mocked HTTP responses. 401/403/429/500 are
-failures, never delivery success. Tests make no network calls or emails.
+The original production base digest and vendor checksums are pinned. The image
+includes OSRM, auth request/controller overrides and the Brevo provider/bridge
+in one reproducible build. The Compose routing override uses this Dockerfile.
+Build tests exercise 15 Laravel validation cases, 10 actual controller login
+cases against SQLite memory, and real Symfony MIME/envelope/attachments with
+mocked HTTP responses. Provider 401/403/429/500 responses fail; build tests make
+no network calls or emails.
 
 Activation requires a Brevo API key (not SMTP key), active transactional
-service and verified sender. The interactive setup preflights key/account/
-sender before any DB mutation, backs up only the three affected settings to
+service and verified sender. The interactive setup preflights key/sender before any DB mutation, backs up only the three affected settings to
 root-only storage and tries rollback if activation fails. It sends no email.
 One authorized reset test must subsequently be verified through provider
 acceptance and the recipient's inbox; neither a mocked test nor a 201 response

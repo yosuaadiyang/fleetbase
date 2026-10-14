@@ -25,3 +25,12 @@ docker-compose.yml
 $virtualenv.tar.gz
 $node_modules.tar.gz
 docker-compose.override.yml
+
+# Production root build must never receive operator secrets/backups/graphs.
+.env
+.env.*
+**/.env
+**/.env.*
+backups/
+docker/routing/data/
+*.sock

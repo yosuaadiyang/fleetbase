@@ -1,33 +1,29 @@
-# Authentication validation patch
+# Authentication validation and token login patch
 
-The upstream LoginRequest, SignUpRequest and TwoFaValidationRequest return a JSON
-response from failedValidation(), but Laravel ignores its return value and
-continues resolving the request. Invalid input can reach the controller.
+The request overrides throw HttpResponseException on validation failure, so
+Laravel returns JSON errors/422 before reaching a controller. String input
+validation rejects arrays and integers. Login requires a password unless an
+authToken is supplied: the console authenticates twice, first with a password,
+then with the returned token only. Requiring the password at both steps breaks
+successful password/reset login.
 
-These overrides throw HttpResponseException with the existing JSON errors/422
-response. Login identity/password, signup names/confirmation and 2FA token also
-reject non-string values. They preserve generic credential errors and the
-existing email/phone login choices.
+The controller override retains token-owner and console-role checks, rejects
+explicit/global token expiration, and returns generic invalid_credentials/401
+when an invalid token has no password. A valid password remains a fallback.
 
-Build on the VPS from the docker/ context:
+Production builds use docker/brevo/Dockerfile from repository root, as configured
+in docker-compose.routing.yml. This pinned-base build includes routing, all
+request/controller fixes, and Brevo together; it does not depend on an
+intermediate local image tag. docker/auth/Dockerfile is only the standalone
+request-validation diagnostic build, not the complete production image.
 
-```sh
-docker build -f docker/auth/Dockerfile -t contrust-api:auth-audit-20261014 docker
-```
+The unified build runs 15 real Laravel validation lifecycle cases, 10 real
+controller/model login cases against isolated in-memory SQLite, and mocked
+Brevo transport tests. Test fixture container/schema definitions derive from
+the core-api tests at the repository's pinned submodule commit. No production
+database, network, email or credentials are accessed by build tests. The
+presence verifier for request-only tests is synthetic. Human login remains
+necessary to verify the actual browser session and account.
 
-The base image is pinned. SHA-256 checks reject different vendor versions instead
-of silently applying incompatible files. The routing patch is retained. Build
-tests exercise Laravel's actual FormRequest validation lifecycle without booting
-the application, sending mail or querying a database. Validation success cases
-do not authenticate or create users. The test's presence verifier is synthetic;
-it does not verify production account lookup or permissions.
-
-Local validation uses Illuminate 10.49 components and the FormRequest source at
-the commit pinned by api/composer.lock. The original request classes fail ten
-negative cases; the patched classes pass all twelve checks. PHP 8.2 image/build
-validation and deployment remain required before marking this patch active.
-
-Deployment must preserve existing environment, routing and volumes, and restart
-only application/queue/scheduler with a graceful timeout. Verify API health,
-invalid login HTTP 422, valid human login and real reset delivery afterward.
-Publish the corresponding source archive alongside the running derived image.
+Deploy with environment/volumes preserved, graceful queue/scheduler restarts,
+API health and routing checks, and a matching published source archive.

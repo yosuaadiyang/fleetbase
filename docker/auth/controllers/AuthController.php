@@ -1,0 +1,1138 @@
+<?php
+
+namespace Fleetbase\Http\Controllers\Internal\v1;
+
+use Fleetbase\Events\UserCreatedNewCompany;
+use Fleetbase\Exceptions\InvalidVerificationCodeException;
+use Fleetbase\Http\Controllers\Controller;
+use Fleetbase\Http\Requests\AdminRequest;
+use Fleetbase\Http\Requests\ChangePasswordRequest;
+use Fleetbase\Http\Requests\Internal\ResetPasswordRequest;
+use Fleetbase\Http\Requests\Internal\UserForgotPasswordRequest;
+use Fleetbase\Http\Requests\JoinOrganizationRequest;
+use Fleetbase\Http\Requests\LoginRequest;
+use Fleetbase\Http\Requests\SignUpRequest;
+use Fleetbase\Http\Requests\SwitchOrganizationRequest;
+use Fleetbase\Http\Resources\AuthOrganization;
+use Fleetbase\Http\Resources\Organization;
+use Fleetbase\Mail\UserCredentialsMail;
+use Fleetbase\Models\Company;
+use Fleetbase\Models\CompanyUser;
+use Fleetbase\Models\Invite;
+use Fleetbase\Models\Role;
+use Fleetbase\Models\User;
+use Fleetbase\Models\VerificationCode;
+use Fleetbase\Notifications\UserForgotPassword;
+use Fleetbase\Support\Auth;
+use Fleetbase\Support\TwoFactorAuth;
+use Fleetbase\Support\Utils;
+use Fleetbase\Twilio\Support\Laravel\Facade as Twilio;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
+
+class AuthController extends Controller
+{
+    /**
+     * Authenticates a user by email and responds with an auth token.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function login(LoginRequest $request)
+    {
+        $identity  = $request->input('identity');
+        $password  = $request->input('password');
+        $authToken = $request->input('authToken');
+
+        // If an existing auth token is provided, attempt to re-authenticate with it.
+        // The token must be valid AND must belong to the user identified by the
+        // 'identity' field in this request, preventing token-swap attacks where a
+        // token from one user could be used to authenticate as another.
+        if ($authToken) {
+            $personalAccessToken = PersonalAccessToken::findToken($authToken);
+
+            $expirationMinutes = config('sanctum.expiration');
+            $tokenIsFresh = $personalAccessToken
+                && (!$personalAccessToken->expires_at || $personalAccessToken->expires_at->isFuture())
+                && (!$expirationMinutes || $personalAccessToken->created_at->gt(now()->subMinutes((int) $expirationMinutes)));
+
+            if ($tokenIsFresh) {
+                $personalAccessToken->loadMissing('tokenable');
+                $tokenOwner = $personalAccessToken->tokenable;
+
+                if (
+                    $tokenOwner instanceof User
+                    && ($tokenOwner->email === $identity || $tokenOwner->phone === $identity)
+                ) {
+                    if ($denied = Auth::denyConsoleLogin($tokenOwner)) {
+                        return $denied;
+                    }
+
+                    return response()->json([
+                        'token' => $authToken,
+                        'type'  => $tokenOwner->getType(),
+                    ]);
+                }
+            }
+
+            // If the token is invalid or does not match the claimed identity, fall
+            // through silently to normal password-based authentication. Do not
+            // return an error here to avoid leaking whether the token exists.
+        }
+
+        // Find the user using the identity provided
+        $user = User::where(function ($query) use ($identity) {
+            $query->where('email', $identity)->orWhere('phone', $identity);
+        })->first();
+
+        if ($denied = Auth::denyConsoleLogin($user)) {
+            return $denied;
+        }
+
+        // If the user exists but has no password set (e.g. SSO-invited or provisioned
+        // accounts), silently fall through to the generic credentials error below.
+        // This guard MUST come before isInvalidPassword() which has a strict string
+        // type declaration on $hashedPassword and would throw a TypeError on null.
+        // We do NOT return a distinct error here to avoid leaking account state.
+        if ($user && empty($user->password)) {
+            $user = null;
+        }
+
+        // Use a generic error message for both non-existent user and wrong password
+        // to prevent user enumeration via differential error responses.
+        if (!$user || !is_string($password) || $password === '' || Auth::isInvalidPassword($password, $user->password)) {
+            return response()->error('These credentials do not match our records.', 401, ['code' => 'invalid_credentials']);
+        }
+
+        // Check if 2FA enabled
+        if (TwoFactorAuth::isEnabled($user)) {
+            $twoFaSession = TwoFactorAuth::start($user);
+
+            return response()->json([
+                'twoFaSession' => $twoFaSession,
+                'isEnabled'    => true,
+            ]);
+        }
+
+        if ($user->isNotVerified() && $user->isNotAdmin()) {
+            return response()->error('User is not verified.', 400, ['code' => 'not_verified']);
+        }
+
+        // Login
+        $user->updateLastLogin();
+        $token = $user->createToken($user->uuid);
+
+        return response()->json(['token' => $token->plainTextToken, 'type' => $user->getType()]);
+    }
+
+    /**
+     * Takes a request username/ or email and password and attempts to authenticate user
+     * will return the user model if the authentication was successful, else will 400.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function session(Request $request)
+    {
+        $token    = $request->bearerToken();
+        $cacheKey = "session_validation_{$token}";
+
+        // Cache session validation for 5 minutes
+        $session = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($request) {
+            $user = $request->user();
+
+            if (!$user || !$user->canHoldConsoleSession()) {
+                return null;
+            }
+
+            $sessionData = [
+                'token'         => $request->bearerToken(),
+                'user'          => $user->uuid,
+                'verified'      => $user->isVerified(),
+                'type'          => $user->getType(),
+                'last_modified' => $user->updated_at,
+            ];
+
+            if (session()->has('impersonator')) {
+                $sessionData['impersonator'] = session()->get('impersonator');
+            }
+
+            return $sessionData;
+        });
+
+        if (!$session) {
+            return response()->error('Session has expired.', 401, ['restore' => false]);
+        }
+
+        // Generate an etag
+        $etag = sha1(json_encode($session));
+
+        return response()
+            ->json($session)
+            ->setEtag($etag)
+            ->setLastModified($session['last_modified'])
+            ->header('Cache-Control', 'private, no-cache, must-revalidate')
+            ->header('X-Cache-Hit', 'false');
+    }
+
+    /**
+     * Logs out the currently authenticated user.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function logout(Request $request)
+    {
+        $token = $request->bearerToken();
+        Cache::forget("session_validation_{$token}");
+
+        Auth::logout();
+
+        return response()->json(['Goodbye']);
+    }
+
+    /**
+     * Bootstrap endpoint - combines session, organizations, and installer status.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function bootstrap(Request $request)
+    {
+        $user     = $request->user();
+        $token    = $request->bearerToken();
+
+        if ($denied = Auth::denyConsoleSession($user)) {
+            return $denied;
+        }
+
+        $cacheKey = "auth_bootstrap_{$user->uuid}_{$token}";
+
+        // Cache for 5 minutes
+        $bootstrap = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($request, $user) {
+            // Get session data
+            $session = [
+                'token'    => $request->bearerToken(),
+                'user'     => $user->uuid,
+                'verified' => $user->isVerified(),
+                'type'     => $user->getType(),
+            ];
+
+            if (session()->has('impersonator')) {
+                $session['impersonator'] = session()->get('impersonator');
+            }
+
+            // Get organizations (optimized query)
+            $organizations = Company::select([
+                'companies.uuid',
+                'companies.name',
+                'companies.owner_uuid',
+            ])
+                ->join('company_users', 'companies.uuid', '=', 'company_users.company_uuid')
+                ->where('company_users.user_uuid', $user->uuid)
+                ->whereNull('company_users.deleted_at')
+                ->whereNotNull('companies.owner_uuid')
+                ->with(['owner:uuid,company_uuid,name,email'])
+                ->distinct()
+                ->get();
+
+            return [
+                'session'       => $session,
+                'organizations' => Organization::collection($organizations),
+            ];
+        });
+
+        return response()->json($bootstrap)
+            ->header('Cache-Control', 'private, max-age=300');
+    }
+
+    /**
+     * Send a verification SMS code.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function sendVerificationSms(Request $request)
+    {
+        // Users phone number
+        $phone       = $queryPhone = $request->input('phone');
+        $countryCode = $request->input('countryCode');
+        $for         = $request->input('driver');
+
+        // set phone number
+        if (!Str::startsWith($queryPhone, '+')) {
+            $queryPhone = '+' . $countryCode . $phone;
+        }
+
+        // Make sure user exists with phone number
+        $userExistsQuery = User::where('phone', $queryPhone)->whereNull('deleted_at')->withoutGlobalScopes();
+
+        if ($for === 'driver') {
+            $userExistsQuery->where('type', 'driver');
+        }
+
+        $userExists = $userExistsQuery->exists();
+
+        if (!$userExists) {
+            return response()->error('No user with this phone # found.');
+        }
+
+        // Generate hto
+        $verifyCode    = mt_rand(100000, 999999);
+        $verifyCodeKey =  Str::slug($queryPhone . '_verify_code', '_');
+
+        // Send user their verification code
+        try {
+            Twilio::message($queryPhone, 'Your Fleetbase authentication code is ' . $verifyCode);
+        } catch (\Exception|\Twilio\Exceptions\RestException $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+
+        // Store verify code for this number with a 10-minute TTL to prevent replay attacks
+        Redis::setex($verifyCodeKey, 600, $verifyCode);
+
+        // 200 OK
+        return response()->json(['status' => 'OK']);
+    }
+
+    /**
+     * Authenticate a user with SMS code.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function authenticateSmsCode(Request $request)
+    {
+        // Users phone number
+        $phone       = $queryPhone = $request->input('phone');
+        $countryCode = $request->input('countryCode');
+
+        // set phone number
+        if (!Str::startsWith($queryPhone, '+')) {
+            $queryPhone = '+' . $countryCode . $phone;
+        }
+
+        // Users verfiy code entered
+        $verifyCode    = $request->input('code');
+        $verifyCodeKey =  Str::slug($queryPhone . '_verify_code', '_');
+
+        // Retrieve the stored verification code from Redis
+        $storedVerifyCode = Redis::get($verifyCodeKey);
+
+        // Retrieve the optional testing bypass code from configuration.
+        // This is configurable via the SMS_AUTH_BYPASS_CODE environment variable
+        // and is intended for development/testing environments only.
+        // It MUST be left unset (null) in production deployments.
+        $bypassCode = config('fleetbase.sms_auth_bypass_code');
+
+        // Verify the submitted code against the stored OTP using a constant-time
+        // comparison to prevent timing attacks. If a bypass code is configured
+        // and the environment is not production, also allow that code.
+        $isValidOtp    = !empty($storedVerifyCode) && hash_equals((string) $storedVerifyCode, (string) $verifyCode);
+        $isBypassValid = !empty($bypassCode) && !app()->environment('production') && hash_equals((string) $bypassCode, (string) $verifyCode);
+
+        if (!$isValidOtp && !$isBypassValid) {
+            return response()->error('Invalid verification code');
+        }
+
+        // Remove from redis
+        Redis::del($verifyCodeKey);
+
+        // get user for phone number
+        $user = User::where('phone', $queryPhone)->first();
+
+        // Attempt authentication
+        if ($user) {
+            // Set authenticatin user
+            Auth::login($user);
+
+            // Generate token
+            try {
+                $token = $user->createToken($user->phone)->plainTextToken;
+            } catch (\Exception $e) {
+                return response()->error($e->getMessage());
+            }
+
+            // @codeCoverageIgnoreStart
+            // The driver relation is supplied by Fleet-Ops; core-api tests cannot load that package relation directly.
+            if ($user->type === 'driver') {
+                $user->load(['driver']);
+            }
+            // @codeCoverageIgnoreEnd
+
+            // Send message to notify users authentication
+            return response()->json([
+                'token' => $token,
+                'user'  => $user,
+            ]);
+        }
+
+        // If unable to authenticate user, respond with error
+        return response()->json('Authentication failed', 401);
+    }
+
+    /**
+     * Create resend verification code session.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function createVerificationSession(Request $request)
+    {
+        $send  = $request->boolean('send');
+        $email = strtolower((string) $request->input('email'));
+        $token = Str::random(40);
+        $user  = User::where('email', $email)->first();
+
+        if (!$user) {
+            return response()->error('No user found with provided email address.');
+        }
+
+        // If opted to send verification token along with session
+        if ($send) {
+            VerificationCode::generateEmailVerificationFor($user, 'email_verification', [
+                'meta' => ['email' => $email],
+            ]);
+        }
+
+        // Store in redis
+        Redis::set($token, json_encode([
+            'email'     => $email,
+            'user_uuid' => $user->uuid,
+        ]), 'EX', 600);
+
+        return response()->json([
+            'token'   => $token,
+            'session' => base64_encode($user->uuid),
+        ]);
+    }
+
+    /**
+     * Validates an email verification session.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function validateVerificationSession(Request $request)
+    {
+        return response()->json([
+            'valid' => $this->getVerificationSession($request) !== null,
+        ]);
+    }
+
+    /**
+     * Send/Resend verification email.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function sendVerificationEmail(Request $request)
+    {
+        $verificationSession = $this->getVerificationSession($request);
+
+        // Check in session
+        if (!$verificationSession) {
+            return response()->error('Invalid verification session.');
+        }
+
+        VerificationCode::generateEmailVerificationFor($verificationSession['user'], 'email_verification', [
+            'meta' => ['email' => $verificationSession['email']],
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+        ]);
+    }
+
+    /**
+     * Verfiy and validate an email address with code.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function verifyEmail(Request $request)
+    {
+        $authenticate        = $request->boolean('authenticate');
+        $code                = $request->input('code');
+        $verificationSession = $this->getVerificationSession($request);
+
+        // Check in session
+        if (!$verificationSession) {
+            return response()->error('Invalid verification session.');
+        }
+
+        $user = $verificationSession['user'];
+
+        // If user is already verified
+        if ($user->isVerified()) {
+            return response()->error('User is already verified.');
+        }
+
+        $verificationCode = VerificationCode::where('subject_uuid', $user->uuid)
+            ->where('for', 'email_verification')
+            ->where('status', 'active')
+            ->where('code', $code)
+            ->first();
+
+        if (!$verificationCode) {
+            return response()->error('Invalid verification code.');
+        }
+
+        // Verify the user using the verification code
+        try {
+            $user->verify($verificationCode);
+            // @codeCoverageIgnoreStart
+            // The query above only returns email_verification codes; User::verify throws this for other code types.
+        } catch (InvalidVerificationCodeException $e) {
+            return response()->error('Invalid verification code.');
+        }
+        // @codeCoverageIgnoreEnd
+
+        $verificationCode->delete();
+        Redis::del($request->input('token'));
+
+        // Activate user
+        $user->activate();
+
+        // If authenticate is set, generate and return a token
+        if ($authenticate && $user->canHoldConsoleSession()) {
+            $user->updateLastLogin();
+            $token = $user->createToken($user->uuid);
+
+            return response()->json([
+                'status'      => 'ok',
+                'verified_at' => $user->getDateVerified(),
+                'token'       => $token->plainTextToken,
+            ]);
+        }
+
+        // Return success response without token
+        return response()->json([
+            'status'      => 'ok',
+            'verified_at' => $user->getDateVerified(),
+            'token'       => null,
+        ]);
+    }
+
+    /**
+     * Allow user to verify SMS code.
+     *
+     * @param \\Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Response $response
+     */
+    public function verifySmsCode(Request $request)
+    {
+        // Users phone number
+        $phone = $request->input('phone');
+
+        // Users verfiy code entered
+        $verifyCode    = $request->input('code');
+        $verifyCodeKey =  Str::slug($phone . '_verify_code', '_');
+
+        // Generate hto
+        $storedVerifyCode = Redis::get($verifyCodeKey);
+
+        // Verify
+        if ($verifyCode === $storedVerifyCode) {
+            // Remove from redis
+            Redis::del($verifyCodeKey);
+
+            // 200 OK
+            return response()->json([
+                'status'  => 'OK',
+                'message' => 'Code verified',
+            ]);
+        }
+
+        // 400 ERROR
+        return response()->error('Invalid verification code');
+    }
+
+    /**
+     * Creates a new company and user account.
+     *
+     * @param \Fleetbase\Http\Requests\SigUpRequest $request
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function signUp(SignUpRequest $request)
+    {
+        $userDetails    = $request->input('user');
+        $companyDetails = $request->input('company');
+
+        $newUser = Auth::register($userDetails, $companyDetails);
+        $token   = $newUser->createToken($newUser->uuid);
+
+        return response()->json(['token' => $token->plainTextToken]);
+    }
+
+    /**
+     * Initializes a password reset using a verification code.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function createPasswordReset(UserForgotPasswordRequest $request)
+    {
+        $email    = strtolower(trim((string) $request->input('email')));
+        $response = ['status' => 'ok'];
+        $user     = User::where('email', $email)->whereNull('deleted_at')->first();
+
+        if (!$user) {
+            return response()->json($response);
+        }
+
+        $dedupeTtlSeconds = 300;
+        $emailKey         = 'password-reset:email:' . sha1($email);
+        $ipKey            = 'password-reset:ip:' . sha1((string) $request->ip());
+
+        if (!Cache::add($emailKey, true, $dedupeTtlSeconds) || !Cache::add($ipKey, true, $dedupeTtlSeconds)) {
+            return response()->json($response);
+        }
+
+        VerificationCode::where('subject_uuid', $user->uuid)
+            ->where('for', 'password_reset')
+            ->where('status', 'active')
+            ->delete();
+
+        // create verification code
+        $verificationCode = VerificationCode::create([
+            'subject_uuid' => $user->uuid,
+            'subject_type' => Utils::getModelClassName($user),
+            'for'          => 'password_reset',
+            'expires_at'   => Carbon::now()->addMinutes(15),
+            'meta'         => ['email' => $email],
+            'status'       => 'active',
+        ]);
+
+        // notify user of password reset
+        $user->notify(new UserForgotPassword($verificationCode));
+
+        return response()->json($response);
+    }
+
+    /**
+     * Reset password.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function resetPassword(ResetPasswordRequest $request)
+    {
+        $verificationCode = VerificationCode::where('uuid', $request->input('link'))
+            ->where('code', $request->input('code'))
+            ->where('for', 'password_reset')
+            ->where('status', 'active')
+            ->with(['subject'])
+            ->first();
+        $password = $request->input('password');
+
+        // if no subject error
+        if (!$verificationCode || !($verificationCode->subject instanceof User)) {
+            return response()->error('Invalid password reset request!');
+        }
+
+        // reset users password
+        $verificationCode->subject->changePassword($password);
+
+        // verify code by deleting so its unusable
+        $verificationCode->delete();
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Confirm a pending user email change.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function confirmEmailChange(Request $request)
+    {
+        $verificationCode = VerificationCode::where('uuid', $request->input('link'))
+            ->where('code', $request->input('code'))
+            ->where('for', 'email_change')
+            ->where('status', 'active')
+            ->with(['subject'])
+            ->first();
+
+        if (!$verificationCode || !($verificationCode->subject instanceof User)) {
+            return response()->error('Invalid email change request!');
+        }
+
+        $user     = $verificationCode->subject;
+        $oldEmail = strtolower((string) data_get($verificationCode->meta, 'old_email'));
+        $newEmail = strtolower((string) data_get($verificationCode->meta, 'new_email'));
+
+        if (!$oldEmail || !$newEmail) {
+            return response()->error('Invalid email change request!');
+        }
+
+        if (strtolower((string) $user->email) !== $oldEmail) {
+            return response()->error('This email change request is no longer valid.');
+        }
+
+        $emailAlreadyExists = User::where('email', $newEmail)
+            ->where('uuid', '!=', $user->uuid)
+            ->whereNull('deleted_at')
+            ->exists();
+
+        if ($emailAlreadyExists) {
+            return response()->error('An account with this email address already exists.');
+        }
+
+        $user->email             = $newEmail;
+        $user->email_verified_at = Carbon::now();
+        $user->save();
+
+        VerificationCode::where('subject_uuid', $user->uuid)
+            ->whereIn('for', ['password_reset', 'email_verification', 'email_change'])
+            ->where('status', 'active')
+            ->delete();
+
+        return response()->json([
+            'status'      => 'ok',
+            'verified_at' => $user->email_verified_at,
+        ]);
+    }
+
+    /**
+     * Confirm an email address or phone number from the link sent by an
+     * administrator's verification request. Works without signing in.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function confirmContactVerification(Request $request)
+    {
+        $verificationCode = VerificationCode::where('uuid', $request->input('link'))
+            ->where('code', $request->input('code'))
+            ->whereIn('for', ['email_verification', 'phone_verification'])
+            ->where('status', 'active')
+            ->where('meta->source', 'admin_request')
+            ->with(['subject'])
+            ->first();
+
+        // Expired codes are excluded by the model's expiry scope
+        if (!$verificationCode || !($verificationCode->subject instanceof User)) {
+            return response()->error('This verification link is invalid or has expired.');
+        }
+
+        $user    = $verificationCode->subject;
+        $channel = data_get($verificationCode->meta, 'channel') === 'phone' ? 'phone' : 'email';
+        $current = $channel === 'phone' ? $user->phone : $user->email;
+
+        // The email/phone changed after the request was sent
+        if ((string) $current !== (string) data_get($verificationCode->meta, 'value')) {
+            return response()->error('This verification link is no longer valid.');
+        }
+
+        $user->verify($verificationCode);
+        $verificationCode->delete();
+
+        return response()->json([
+            'status'      => 'ok',
+            'channel'     => $channel,
+            'verified_at' => $channel === 'phone' ? $user->phone_verified_at : $user->email_verified_at,
+        ]);
+    }
+
+    private function getVerificationSession(Request $request): ?array
+    {
+        $email        = strtolower((string) $request->input('email'));
+        $token        = (string) $request->input('token');
+        $sessionToken = $token ? Redis::get($token) : null;
+
+        if (!$email || !$sessionToken) {
+            return null;
+        }
+
+        $payload = json_decode($sessionToken, true);
+
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $sessionEmail = strtolower((string) data_get($payload, 'email'));
+        $userUuid     = data_get($payload, 'user_uuid');
+
+        if (!$sessionEmail || !$userUuid || !hash_equals($sessionEmail, $email)) {
+            return null;
+        }
+
+        $user = User::where('uuid', $userUuid)->first();
+
+        if (!$user || strtolower((string) $user->email) !== $sessionEmail) {
+            return null;
+        }
+
+        return [
+            'email' => $sessionEmail,
+            'token' => $token,
+            'user'  => $user,
+        ];
+    }
+
+    /**
+     * Simple check if verificationc code is still valid.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function validateVerificationCode(Request $request)
+    {
+        $id    = $request->input('id');
+        $for   = $request->input('for');
+        $query = VerificationCode::where('uuid', $id);
+
+        if ($for) {
+            $query->where('for', $for)->where('status', 'active');
+        }
+
+        $valid = $query->exists();
+
+        return response()->json(['is_valid' => $valid, 'id' => $id]);
+    }
+
+    /**
+     * Takes a request username/ or email and password and attempts to authenticate user
+     * will return the user model if the authentication was successful, else will 400.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getUserOrganizations(Request $request)
+    {
+        $user     = $request->user();
+        $cacheKey = "user_organizations_v2_{$user->uuid}";
+
+        // Cache for 30 minutes
+        $companies = Cache::remember($cacheKey, 60 * 30, function () use ($user) {
+            return Company::select([
+                'companies.id',
+                'companies.uuid',
+                'companies.public_id',
+                'companies.name',
+                'companies.description',
+                'companies.phone',
+                'companies.logo_uuid',
+                'companies.backdrop_uuid',
+                'companies.options',
+                'companies.currency',
+                'companies.country',
+                'companies.timezone',
+                'companies.plan',
+                'companies.trial_ends_at',
+                'companies.status',
+                'companies.type',
+                'companies.slug',
+                'companies.owner_uuid',
+                'companies.onboarding_completed_at',
+                'companies.created_at',
+                'companies.updated_at',
+                'company_users.created_at as joined_at',
+            ])
+                ->withCount('users as users_count')
+                ->join('company_users', 'companies.uuid', '=', 'company_users.company_uuid')
+                ->where('company_users.user_uuid', $user->uuid)
+                ->whereNull('company_users.deleted_at')
+                ->whereNotNull('companies.owner_uuid')
+                ->with([
+                    'owner:uuid,company_uuid,name,email,updated_at',
+                ])
+                ->distinct()
+                ->get();
+        });
+
+        /**
+         * Generate a full ETag representing:
+         * - all org UUIDs
+         * - all org updated_at timestamps
+         * - count of organizations
+         */
+        $etagPayload = $companies->map(function ($company) {
+            $ownerTimestamp = $company->owner?->updated_at?->timestamp ?? 0;
+
+            return $company->uuid . ':' . $company->updated_at->timestamp . ':' . $ownerTimestamp;
+        })->join('|');
+
+        // Add count to ETag (if orgs added/removed)
+        $etagPayload .= '|count:' . $companies->count();
+        $etag = sha1($etagPayload);
+
+        return AuthOrganization::collection($companies)
+            ->response()
+            ->setEtag($etag)
+            ->header('Cache-Control', 'private, no-cache, must-revalidate');
+    }
+
+    /**
+     * Clear user organizations cache (call when org changes).
+     *
+     * @return void
+     */
+    public static function clearUserOrganizationsCache(string $userUuid)
+    {
+        Cache::forget("user_organizations_{$userUuid}");
+        Cache::forget("user_organizations_v2_{$userUuid}");
+    }
+
+    /**
+     * Allows a user to simply switch their organization.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function switchOrganization(SwitchOrganizationRequest $request)
+    {
+        $nextOrganization = $request->input('next');
+        $user             = $request->user();
+
+        if ($nextOrganization === $user->company_uuid) {
+            return response()->json(
+                [
+                    'errors' => ['User is already on this organizations session'],
+                ]
+            );
+        }
+
+        if (!CompanyUser::where(['user_uuid' => $user->uuid, 'company_uuid' => $nextOrganization])->exists()) {
+            return response()->json(
+                [
+                    'errors' => ['You do not belong to this organization'],
+                ]
+            );
+        }
+
+        $user->assignCompanyFromId($nextOrganization);
+        Auth::setSession($user);
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Allows a user to join an organization.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function joinOrganization(JoinOrganizationRequest $request)
+    {
+        try {
+            $company = Company::where('public_id', $request->input('next'))->first();
+            $user    = Auth::getUserFromSession($request);
+
+            // Make sure user has been invited to join organizations
+            $invite = Invite::findSentToJoinCompany($user, $company);
+            if (!$invite) {
+                return response()->error('User has not been invited to join this organization.');
+            }
+
+            // Make sure user isn't already a member of this organization
+            if ($company->uuid === $user->company_uuid) {
+                return response()->error('User is already a member of this organization.');
+            }
+
+            // Join with the role the invite carries; never a default one
+            $company->assignUser($user, $this->inviteRoleId($invite, $company));
+            Auth::setSession($user);
+
+            return response()->json(['status' => 'ok']);
+            // @codeCoverageIgnoreStart
+            // Covered join paths validate expected failures; this protects unexpected persistence/session exceptions.
+        } catch (\Exception $e) {
+            return response()->error(app()->hasDebugModeEnabled() ? $e->getMessage() : 'Unable to join organization.');
+        }
+        // @codeCoverageIgnoreEnd
+    }
+
+    /**
+     * The id of the role an invite grants in the organization, when it names one
+     * that belongs to the organization or is global.
+     */
+    private function inviteRoleId(Invite $invite, Company $company): ?string
+    {
+        $roleId = $invite->getMeta('role_uuid');
+        if (!$roleId) {
+            return null;
+        }
+
+        return Role::where(function ($query) use ($roleId) {
+            $query->where('id', $roleId)->orWhere('name', $roleId);
+        })->where(function ($query) use ($company) {
+            $query->where('company_uuid', $company->uuid)->orWhereNull('company_uuid');
+        })->value('id');
+    }
+
+    /**
+     * Allows user to create a new organization.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function createOrganization(Request $request)
+    {
+        $user    = Auth::getUserFromSession($request);
+        $input   = array_merge($request->only(['name', 'description', 'phone', 'email', 'currency', 'country', 'timezone']), ['owner_uuid' => $user->uuid]);
+
+        try {
+            $company = Company::create($input);
+
+            // Set company owner
+            $company->setOwner($user)->save();
+
+            // Assign user to organization
+            $user->assignCompany($company, 'Administrator');
+            $user->assignSingleRole('Administrator');
+
+            // Company onboarding is not necessary - set correct flags
+            $company->update([
+                'onboarding_completed_at'      => now(),
+                'onboarding_completed_by_uuid' => $user->uuid,
+            ]);
+
+            // Fire event that user created a new organization
+            event(new UserCreatedNewCompany($user, $company));
+        } catch (\Throwable $e) {
+            return response()->error($e->getMessage());
+        }
+
+        Auth::setSession($user);
+
+        return new Organization($company);
+    }
+
+    /**
+     * Returns all authorization services which provide schemas.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function services()
+    {
+        $schemas  = Utils::getAuthSchemas();
+        $services = [];
+
+        foreach ($schemas as $schema) {
+            $services[] = $schema->name;
+        }
+
+        return response()->json(array_unique($services));
+    }
+
+    /**
+     * Change a user password.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function changeUserPassword(ChangePasswordRequest $request)
+    {
+        $user = Auth::getUserFromSession($request);
+        if (!$user) {
+            return response()->error('Not authorized to change user password.', 401);
+        }
+
+        $canChangePassword = $user->isAdmin() || $user->hasRole('Administrator') || $user->hasPermissionTo('iam change-password-for user');
+        if (!$canChangePassword) {
+            return response()->error('Not authorized to change user password.', 401);
+        }
+
+        // Get request input
+        $userId          = $request->input('user');
+        $password        = $request->input('password');
+        $confirmPassword = $request->input('password_confirmation');
+        $sendCredentials = $request->boolean('send_credentials');
+
+        if (!$userId) {
+            return response()->error('No user specified to change password for.');
+        }
+
+        if ($password !== $confirmPassword) {
+            return response()->error('Passwords do not match.');
+        }
+
+        $targetUser = User::where('uuid', $userId)->whereHas('anyCompanyUser', function ($query) {
+            $query->where('company_uuid', session('company'));
+        })->first();
+        if (!$targetUser) {
+            return response()->error('User not found to change password for.');
+        }
+
+        // Change password
+        $targetUser->changePassword($password);
+
+        // Send credentials to customer if opted
+        if ($sendCredentials) {
+            Mail::to($targetUser)->send(new UserCredentialsMail($password, $targetUser));
+        }
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Allows system admin to impersonate a user.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function impersonate(AdminRequest $request)
+    {
+        $currentUser = Auth::getUserFromSession($request);
+        if ($currentUser->isNotAdmin()) {
+            return response()->error('Not authorized to impersonate users.');
+        }
+
+        $targetUserId = $request->input('user');
+        if (!$targetUserId) {
+            return response()->error('Not target user selected to impersonate.');
+        }
+
+        $targetUser = User::where('uuid', $targetUserId)->first();
+        if (!$targetUser) {
+            return response()->error('The selected user to impersonate was not found.');
+        }
+
+        if ($denied = Auth::denyConsoleSession($targetUser)) {
+            return $denied;
+        }
+
+        try {
+            Auth::setSession($targetUser);
+            session()->put('impersonator', $currentUser->uuid);
+            $token = $targetUser->createToken($targetUser->uuid);
+        } catch (\Exception $e) {
+            return response()->error($e->getMessage());
+        }
+
+        return response()->json(['status' => 'ok', 'token' => $token->plainTextToken]);
+    }
+
+    /**
+     * Ends the impersonation session.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function endImpersonation()
+    {
+        $impersonatorId = session()->get('impersonator');
+        if (!$impersonatorId) {
+            return response()->error('Not impersonator session found.');
+        }
+
+        $impersonator = User::where('uuid', $impersonatorId)->first();
+        if (!$impersonator) {
+            return response()->error('The impersonator user was not found.');
+        }
+
+        if ($impersonator->isNotAdmin()) {
+            return response()->error('The impersonator does not have permissions. Logout.');
+        }
+
+        try {
+            Auth::setSession($impersonator);
+            session()->remove('impersonator');
+            $token = $impersonator->createToken($impersonator->uuid);
+        } catch (\Exception $e) {
+            return response()->error($e->getMessage());
+        }
+
+        return response()->json(['status' => 'ok', 'token' => $token->plainTextToken]);
+    }
+}
