@@ -44,8 +44,37 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->configureBrevoMailTransport();
         $this->configureOutboundHttpLogging();
         $this->configureTransactionTripwire();
+    }
+
+    /** Register the official Symfony Brevo bridge with bounded HTTPS requests. */
+    protected function configureBrevoMailTransport(): void
+    {
+        $settings = \Fleetbase\Models\Setting::hasConnection()
+            ? \Fleetbase\Models\Setting::system('mail.mailers.brevo', [])
+            : [];
+        $settings = is_array($settings) ? $settings : [];
+        config(['mail.mailers.brevo' => [
+            'transport' => 'brevo',
+            'key' => $settings['key'] ?? env('BREVO_API_KEY', ''),
+        ]]);
+        $this->app->make('mail.manager')->extend('brevo', function (array $config) {
+            $key = $config['key'] ?? '';
+            if (!is_string($key) || trim($key) === '') {
+                throw new \InvalidArgumentException('Brevo API key is not configured.');
+            }
+            require_once app_path('Mail/BrevoApiTransport.php');
+            return new \Symfony\Component\Mailer\Bridge\Brevo\Transport\BrevoApiTransport(
+                $key,
+                \Symfony\Component\HttpClient\HttpClient::create([
+                    'timeout' => 15,
+                    'max_duration' => 20,
+                    'max_redirects' => 0,
+                ])
+            );
+        });
     }
 
     /**
