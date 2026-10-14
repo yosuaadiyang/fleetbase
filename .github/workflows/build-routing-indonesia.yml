@@ -91,7 +91,12 @@ jobs:
           done
       - name: Package prepared graph
         if: ${{ steps.graph-cache.outputs.cache-hit != 'true' }}
+        shell: bash
         run: |
+          set -euo pipefail
+          # OSRM runs as root and creates fileIndex with mode 0600. Restore
+          # ownership only inside this job's newly created data directory.
+          sudo chown -R "$(id -u):$(id -g)" "$PWD/data"
           cat > data/ATTRIBUTION.md <<'EOF'
           Indonesia snapshot 2026-10-12, Geofabrik, includes East Timor.
           Data: © OpenStreetMap contributors, ODbL 1.0.
@@ -100,7 +105,25 @@ jobs:
           OSRM car profile, MLD; image digest 55dbfd47d984c2cacd64e32901b4321c86b5ec761438e69aa053dc78698a786f.
           Preparation filter: nw/highway w/route w/railway r/type=restriction r/type=route (including referenced nodes/members).
           EOF
-          tar --exclude='*.osm.pbf'  --exclude='*.md5' -czf indonesia-osrm-20261012.tar.gz -C data .
+          # Ship runtime inputs, including optional files that exist, rather
+          # than extraction/partitioning intermediates or the source PBF.
+          docker run --rm "$OSRM_IMAGE" osrm-routed --algorithm mld --list-inputs > runtime-inputs.txt
+          python3 - <<'PY'
+          import pathlib,re
+          data=pathlib.Path('data');names={'ATTRIBUTION.md'}
+          for line in pathlib.Path('runtime-inputs.txt').read_text().splitlines():
+              match=re.fullmatch(r'(required|optional) (\.osrm(?:\.[a-zA-Z0-9_-]+)*)',line.strip())
+              if not match:
+                  raise SystemExit('Unexpected runtime input description: '+line)
+              name='indonesia'+match[2]
+              if (data/name).is_file():names.add(name)
+              elif match[1]=='required':raise SystemExit('Missing runtime input: '+name)
+          for suffix in ('cells','cell_metrics','mldgr','partition'):
+              if 'indonesia.osrm.'+suffix not in names:raise SystemExit('Missing MLD input: '+suffix)
+          pathlib.Path('runtime-files.txt').write_text('\n'.join(sorted(names))+'\n')
+          print({'runtime_file_count':len(names),'runtime_bytes':sum((data/n).stat().st_size for n in names)})
+          PY
+          tar --no-recursion -czf indonesia-osrm-20261012.tar.gz -C data -T runtime-files.txt
           sha256sum indonesia-osrm-20261012.tar.gz > indonesia-osrm-20261012.tar.gz.sha256
           test "$(stat -c %s indonesia-osrm-20261012.tar.gz)" -lt 9663676416
       - name: Check free cache headroom
