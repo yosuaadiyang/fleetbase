@@ -1,0 +1,10 @@
+FROM fleetbase/fleetbase-api:v0.7.68@sha256:dc42bcfeadf22e4579dd0a2e68fa95ad9d1ed49765c6f16a469abe6ca3f1fe37
+# Fail if the expected upstream helper changes; do not silently patch another version.
+RUN echo '70d794cabbb4076fdb1df4755a62c1c323b60ed37bc023b915c97e4bcf7012be  /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/OSRM.php' | sha256sum --check
+COPY api/OSRM.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/OSRM.php
+RUN php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/OSRM.php
+COPY api /tmp/contrust-routing-tests/api
+COPY tests /tmp/contrust-routing-tests/tests
+RUN php /tmp/contrust-routing-tests/tests/osrm-helper-test.php \
+    && php /tmp/contrust-routing-tests/tests/real-vendor-test.php \
+    && rm -rf /tmp/contrust-routing-tests

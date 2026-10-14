@@ -21,6 +21,12 @@ for --trial; use explicit --trial=true and --mmap=true. Runtime route/capacity
 validation is still required. The current 8 GiB VPS must not do this
 preprocessing while serving production traffic.
 
+The next preparation completed too, but packaging failed because OSRM's root
+container created a private fileIndex. The workflow now repairs ownership in its
+own workspace and archives only the required/available runtime inputs reported
+by the pinned OSRM image. A synthetic end-to-end graph passed preprocessing,
+non-root packaging, archive restore, startup trial and an HTTP route.
+
 The input is Geofabrik's Indonesia snapshot from 2026-10-12 (data timestamp
 2026-10-12T20:21:35Z), verified against the publisher's MD5 checksum. It includes
 East Timor. Data: © OpenStreetMap contributors, ODbL 1.0; see
@@ -49,3 +55,15 @@ When activated, add a Caddy `handle_path /routing/*` that proxies to
 existing `COMPOSE_FILE`, recreate only the routing/proxy and API/queue/scheduler
 services as required, and refresh Laravel's configuration cache. Do not restart
 the database to change routing.
+
+The overlay also selects a derived API image built with `Dockerfile.api`. Its
+single vendor patch fixes OSRM polyline latitude/longitude order, polyline6 and
+GeoJSON decoding, keys caches by provider and dataset version, avoids caching
+failed requests, and uses a bounded five-second timeout. The build checks the
+original vendor helper's SHA-256 before replacing it, then runs 15 focused checks
+and an integration check using the actual vendor Point/Polyline classes without
+database or network access. API, queue and scheduler must use the same image and
+`OSRM_DATA_VERSION`. Previous provider caches are left to expire; never flush
+shared Redis to switch routing. Queue/scheduler receive a 120-second graceful
+stop window. `PUBLIC_OSRM_HOST` also supplies the console's compiled fallback;
+set the runtime JSON to the same public endpoint before opening a fresh browser.

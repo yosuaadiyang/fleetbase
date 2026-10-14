@@ -50,9 +50,13 @@ ARG DISABLE_RUNTIME_CONFIG
 # Left unset, config/environment.js's default stands.
 ARG SOURCE_CODE_URL
 
+# Used only as the fallback when runtime configuration cannot be fetched.
+ARG OSRM_HOST
+
 # Build the application
 RUN if [ -z "$DISABLE_RUNTIME_CONFIG" ]; then unset DISABLE_RUNTIME_CONFIG; fi \
   && if [ -z "$SOURCE_CODE_URL" ]; then unset SOURCE_CODE_URL; fi \
+  && if [ -z "$OSRM_HOST" ]; then unset OSRM_HOST; fi \
   && pnpm build --environment $ENVIRONMENT
 
 # ---- Serve Stage ----

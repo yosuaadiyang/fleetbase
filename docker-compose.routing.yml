@@ -30,11 +30,30 @@ services:
       options: {max-size: "10m", max-file: "3"}
 
   application:
+    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:routing-audit-20261014}
+    build:
+      context: ./docker/routing
+      dockerfile: Dockerfile.api
     environment:
       OSRM_HOST: http://routing:5000
+      OSRM_TIMEOUT: "5"
+      OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
   queue:
+    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:routing-audit-20261014}
+    stop_grace_period: 120s
     environment:
       OSRM_HOST: http://routing:5000
+      OSRM_TIMEOUT: "5"
+      OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
   scheduler:
+    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:routing-audit-20261014}
+    stop_grace_period: 120s
     environment:
       OSRM_HOST: http://routing:5000
+      OSRM_TIMEOUT: "5"
+      OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
+
+  console:
+    build:
+      args:
+        OSRM_HOST: ${PUBLIC_OSRM_HOST:-https://api.contrust.website/routing}
