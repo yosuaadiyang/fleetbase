@@ -18,7 +18,7 @@ services:
       options: {max-size: "10m", max-file: "3"}
 
   routing-proxy:
-    image: nginx:alpine
+    image: nginx:alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
     restart: unless-stopped
     mem_limit: 64m
     cpus: 0.25
