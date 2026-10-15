@@ -105,3 +105,9 @@ The dedicated synthetic OTP suite sends no email or SMS and covers replay,
 expiry, wrong purpose/identity/organization, malformed input, reset consumption
 and request limits. The single-worker HTTP harness does not prove concurrent
 Octane behavior or provider delivery.
+
+Changing a driver's password now locks the user row, checks the current password,
+updates it, revokes existing sessions and issues the replacement token within one
+transaction. The replacement token always uses the owned driver UUID; a device
+label cannot replace the ownership boundary. The HTTP contract verifies that the
+new session can read its own profile and that the previous session is revoked.

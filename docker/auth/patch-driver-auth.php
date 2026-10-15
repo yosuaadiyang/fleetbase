@@ -70,6 +70,45 @@ $companyMethod = <<<'METHOD'
     }
 METHOD;
 $source = substr_replace($source, $companyMethod . "\n", $companyStart, $companyEnd - $companyStart);
+$changeStart = strpos($source, '    public function changePassword(Request $request, string $id)');
+$changeEnd = strpos($source, "\n    /**", $changeStart);
+if ($changeStart === false || $changeEnd === false) {
+    throw new RuntimeException('Driver password change method boundary missing.');
+}
+$changeMethod = <<<'METHOD'
+    public function changePassword(Request $request, string $id)
+    {
+        try {
+            $driver = $this->findDriver($id, ['user']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $exception) {
+            return response()->apiError('Driver resource not found.', 404);
+        }
+        try {
+            $token = DB::transaction(function () use ($request, $driver) {
+                $user = User::where('uuid', $driver->user_uuid)->lockForUpdate()->first();
+                if (!$user || static::isLoginDeactivated($user)
+                    || !static::passwordMatches($user, $request->input('current_password'))) {
+                    return null;
+                }
+                $user->password = $request->input('password');
+                $user->save();
+                $user->tokens()->delete();
+                // Always preserve the server-resolved driver token boundary;
+                // a client-supplied device label is not an ownership identifier.
+                $token = $user->createToken($driver->uuid);
+                DB::table('drivers')->where('uuid', $driver->uuid)->update(['auth_token' => $token->plainTextToken]);
+                return $token;
+            });
+        } catch (\Throwable $e) {
+            return response()->apiError('Unable to change driver password.');
+        }
+        if (!$token) {
+            return response()->apiError('The current password is incorrect.', 422);
+        }
+        return response()->json(['status' => 'ok', 'token' => $token->plainTextToken]);
+    }
+METHOD;
+$source = substr_replace($source, $changeMethod . "\n", $changeStart, $changeEnd - $changeStart);
 $before = <<<'METHOD'
         $verification = static::findResetCode($user, $code);
 

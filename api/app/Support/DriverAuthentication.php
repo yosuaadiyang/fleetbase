@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 /** Shared limits across workers and bootstrap keys; never put identities in cache keys. */
 final class DriverAuthentication
 {
-    private const ACTIONS = ['login', 'loginWithPhone', 'verifyCode', 'forgotPassword', 'resetPassword'];
+    private const ACTIONS = ['login', 'loginWithPhone', 'verifyCode', 'forgotPassword', 'resetPassword', 'changePassword'];
 
     public static function check(Request $request, string $action): ?JsonResponse
     {
@@ -22,7 +22,7 @@ final class DriverAuthentication
             return $limited;
         }
         $identityField = $action === 'loginWithPhone' ? 'phone' : 'identity';
-        $rules = [$identityField => ['required', 'string', 'max:254', function ($attribute, $value, $fail) {
+        $rules = $action === 'changePassword' ? [] : [$identityField => ['required', 'string', 'max:254', function ($attribute, $value, $fail) {
             if (!is_string($value) || (!filter_var($value, FILTER_VALIDATE_EMAIL) && !preg_match('/^\+?[0-9]{8,15}$/D', $value))) {
                 $fail('Use an email address or an international phone number.');
             }
@@ -36,22 +36,26 @@ final class DriverAuthentication
         if ($action === 'verifyCode') {
             $rules['for'] = ['sometimes', 'required', 'string', 'in:driver_login'];
         }
-        if (in_array($action, ['login', 'resetPassword'], true)) {
+        if (in_array($action, ['login', 'resetPassword', 'changePassword'], true)) {
             $rules['password'] = ['required', 'string', 'max:4096'];
-            if ($action === 'resetPassword') {
+            if (in_array($action, ['resetPassword', 'changePassword'], true)) {
                 $rules['password'][] = 'min:8';
             }
+        }
+        if ($action === 'changePassword') {
+            $rules['current_password'] = ['required', 'string', 'max:4096'];
+            $rules['password_confirmation'] = ['sometimes', 'required', 'string', 'same:password'];
         }
         $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()->all()], 422);
         }
-        $identity = strtolower($request->input($identityField));
+        $identity = $action === 'changePassword' ? (string) $request->user()->uuid : strtolower($request->input($identityField));
         if (!str_contains($identity, '@')) {
             $identity = '+' . ltrim($identity, '+');
         }
         $send = in_array($action, ['loginWithPhone', 'forgotPassword'], true);
-        $group = $send ? 'send' : ($action === 'login' ? 'password' : 'code');
+        $group = $send ? 'send' : (in_array($action, ['login', 'changePassword'], true) ? 'password' : 'code');
         // Identity-wide limit cannot be evaded by cycling organization bootstrap keys.
         return self::hit($group . ':' . hash('sha256', $identity), $send ? 3 : 10);
     }

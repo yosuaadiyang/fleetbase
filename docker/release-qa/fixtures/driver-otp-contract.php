@@ -32,12 +32,12 @@ function otpCall(string $actor, $code, $purpose = null, ?string $organization = 
     return authCall('verify-code', $body, $organization ?? ($actor === 'driver_b' ? 'b' : 'a'));
 }
 
-function authCall(string $endpoint, array $body, string $organization = 'a'): array
+function authCall(string $endpoint, array $body, string $organization = 'a', ?string $bearer = null, string $method = 'POST'): array
 {
     global $state;
     $context = stream_context_create(['http' => [
-        'method' => 'POST',
-        'header' => "Accept: application/json\r\nContent-Type: application/json\r\nAuthorization: Bearer " . $state['bootstrap'][$organization],
+        'method' => $method,
+        'header' => "Accept: application/json\r\nContent-Type: application/json\r\nAuthorization: Bearer " . ($bearer ?? $state['bootstrap'][$organization]),
         'content' => json_encode($body, JSON_THROW_ON_ERROR), 'ignore_errors' => true, 'timeout' => 15,
     ]]);
     $raw = file_get_contents('http://127.0.0.1:8000/v1/drivers/' . $endpoint, false, $context);
@@ -106,6 +106,21 @@ $input = ['identity' => $state['users']['driver_a_other']['identity'], 'code' =>
 otpCheck('valid reset code changes synthetic password', $http === 200, $http);
 [$http] = authCall('reset-password', $input);
 otpCheck('consumed password reset code cannot be replayed', $http === 422, $http);
+$v = otpFixture('driver_a_other');
+[$http, $body] = otpCall('driver_a_other', (string) $v->code);
+$driver = $body['driver'] ?? $body;
+$oldToken = $driver['token'] ?? '';
+$id = $state['users']['driver_a_other']['driver_public_id'];
+$identity = $state['users']['driver_a_other'];
+[$http] = authCall($id . '/change-password', ['current_password' => $identity['password'], 'password' => ['bad']], 'a', $oldToken);
+otpCheck('driver password change rejects array input', $http === 422, $http);
+[$http, $body] = authCall($id . '/change-password', ['current_password' => $identity['password'], 'password' => $identity['password']], 'a', $oldToken);
+otpCheck('driver can change own synthetic password', $http === 200 && is_string($body['token'] ?? null), $http);
+$newToken = $body['token'] ?? '';
+[$http] = authCall($id, [], 'a', $newToken, 'GET');
+otpCheck('replacement password-change token retains own driver access', $http === 200, $http);
+[$http] = authCall($id, [], 'a', $oldToken, 'GET');
+otpCheck('password change revokes previous driver session', $http === 401, $http);
 $limited = [];
 for ($i = 0; $i < 12; $i++) {
     [$http, , $headers] = otpCall('driver_b', '000000');
