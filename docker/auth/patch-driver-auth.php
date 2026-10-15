@@ -109,6 +109,33 @@ $changeMethod = <<<'METHOD'
     }
 METHOD;
 $source = substr_replace($source, $changeMethod . "\n", $changeStart, $changeEnd - $changeStart);
+$deliveryBefore = <<<'METHOD'
+        // generate verification token
+        try {
+METHOD;
+$deliveryAfter = <<<'METHOD'
+        // Contrust's initial release uses email OTP and does not require paid SMS.
+        if (env('CONTRUST_DRIVER_OTP_CHANNEL', 'email') === 'email') {
+            if (!$user->email) {
+                return response()->apiError('A driver email address is required for verification.', 422);
+            }
+            try {
+                VerificationCode::generateEmailVerificationFor($user, 'driver_login', [
+                    'company_uuid' => $company->uuid,
+                    'expireAfter' => now()->addMinutes(10),
+                    'messageCallback' => fn ($verification) => 'Your ' . $company->name . ' verification code is ' . $verification->code,
+                ]);
+            } catch (\Throwable $exception) {
+                return response()->apiError('Unable to send email verification code.');
+            }
+            return response()->json(['status' => 'OK', 'method' => 'email']);
+        }
+
+        // generate verification token
+        try {
+METHOD;
+$source = str_replace($deliveryBefore, $deliveryAfter, $source, $deliveryCount);
+if ($deliveryCount !== 1) throw new RuntimeException('Email OTP delivery patch must match exactly once.');
 $before = <<<'METHOD'
         $verification = static::findResetCode($user, $code);
 

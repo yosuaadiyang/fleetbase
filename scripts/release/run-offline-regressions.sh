@@ -13,6 +13,7 @@ run_test auth request-validation-test.php
 run_test auth token-login-test.php
 run_test auth api-token-lifetime-test.php
 run_test auth proof-image-test.php
+run_test auth sms-log-privacy-test.php
 run_test brevo brevo-transport-test.php
 run_test tracking public-tracking-test.php
 # The standalone helper test resolves ../api/OSRM.php relative to its test dir.

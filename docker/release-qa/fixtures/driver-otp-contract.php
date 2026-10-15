@@ -121,6 +121,13 @@ $newToken = $body['token'] ?? '';
 otpCheck('replacement password-change token retains own driver access', $http === 200, $http);
 [$http] = authCall($id, [], 'a', $oldToken, 'GET');
 otpCheck('password change revokes previous driver session', $http === 401, $http);
+VerificationCode::where('subject_uuid', $identity['uuid'])->where('for', 'driver_login')->delete();
+[$http, $body] = authCall('login-with-sms', ['phone' => $identity['phone']]);
+otpCheck('phone login selects log-only email delivery without SMS provider', $http === 200 && ($body['method'] ?? null) === 'email', $http);
+$delivered = VerificationCode::where('subject_uuid', $identity['uuid'])->where('for', 'driver_login')->first();
+[$http, $body] = authCall('verify-code', ['identity' => $identity['phone'], 'code' => (string) ($delivered?->code ?? '')]);
+$profile = $body['driver'] ?? $body;
+otpCheck('phone identity can exchange generated email code for driver profile', $http === 200 && is_string($profile['token'] ?? null), $http);
 $limited = [];
 for ($i = 0; $i < 12; $i++) {
     [$http, , $headers] = otpCall('driver_b', '000000');
@@ -135,7 +142,7 @@ for ($i = 0; $i < 4; $i++) {
 otpCheck('reset email requests are limited without sending mail', $http === 429, $http);
 $failed = count(array_filter($checks, fn ($check) => !$check['passed']));
 $report = ['environment' => 'isolated-synthetic-mysql', 'checks' => $checks, 'passed' => count($checks) - $failed,
-    'failed' => $failed, 'emails_sent' => 0, 'codes_or_tokens_printed' => false];
+    'failed' => $failed, 'emails_sent' => 0, 'synthetic_log_only_email_requests' => 1, 'codes_or_tokens_printed' => false];
 file_put_contents(storage_path('app/release-qa/driver-otp-results.json'), json_encode($report, JSON_PRETTY_PRINT));
 echo json_encode($report, JSON_PRETTY_PRINT), PHP_EOL;
 exit($failed ? 1 : 0);

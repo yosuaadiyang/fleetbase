@@ -25,6 +25,16 @@ RUN php /tmp/contrust-patch-driver-order.php \
     && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/OrderController.php \
     && rm /tmp/contrust-patch-driver-order.php
 COPY docker/auth/api/ /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/
+RUN echo '34acc7b56470eb769d5433fbfa33122e969c1674e46e7f42ac180ebecc7b8e3f  /fleetbase/api/vendor/fleetbase/core-api/src/Services/SmsService.php' | sha256sum --check \
+    && echo 'a35929e148a8da20e0535f82dbf1c7b48588460e1868052ca85104c482f321e1  /fleetbase/api/vendor/fleetbase/core-api/src/Models/VerificationCode.php' | sha256sum --check
+COPY docker/auth/vendor/SmsService.php /fleetbase/api/vendor/fleetbase/core-api/src/Services/SmsService.php
+COPY docker/auth/vendor/VerificationCode.php /fleetbase/api/vendor/fleetbase/core-api/src/Models/VerificationCode.php
+COPY docker/places/patch-place-api.php /tmp/contrust-patch-place-api.php
+RUN php /tmp/contrust-patch-place-api.php \
+    && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/PlaceController.php \
+    && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Requests/CreatePlaceRequest.php \
+    && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Rules/ResolvablePoint.php \
+    && rm /tmp/contrust-patch-place-api.php
 COPY docker/auth/tests/ /tmp/contrust-auth-tests/
 RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginRequest.php \
     && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/SignUpRequest.php \
@@ -33,6 +43,7 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginReque
     && php /tmp/contrust-auth-tests/token-login-test.php \
     && php /tmp/contrust-auth-tests/api-token-lifetime-test.php \
     && php /tmp/contrust-auth-tests/proof-image-test.php \
+    && php /tmp/contrust-auth-tests/sms-log-privacy-test.php \
     && rm -rf /tmp/contrust-auth-tests
 
 RUN echo '77ee2b924bbc059808d2b6849c4bbfc47f601aeec5b4cf4814904422a2005ef5  /fleetbase/api/app/Providers/AppServiceProvider.php' | sha256sum --check

@@ -111,3 +111,17 @@ updates it, revokes existing sessions and issues the replacement token within on
 transaction. The replacement token always uses the owned driver UUID; a device
 label cannot replace the ownership boundary. The HTTP contract verifies that the
 new session can read its own profile and that the previous session is revoked.
+
+The initial Contrust driver phone-login flow uses email OTP by default and returns
+`method=email`, which Navigator supports. It requires a driver email and expires
+the new code after ten minutes. It does not attempt an SMS provider. A deliberate
+future `CONTRUST_DRIVER_OTP_CHANNEL=sms` configuration restores the upstream SMS
+path; a provider and cost approval would be separate operational prerequisites.
+The log-mail synthetic test exercises phone request → email code creation → phone
+identity verification, without contacting any email/SMS provider.
+
+Pinned SmsService and VerificationCode artifacts remove SMS bodies, OTP text,
+recipient numbers and raw delivery-exception messages from their delivery logs.
+A real service instance with an unsupported provider exercises the error path
+without network access and verifies that log records contain no recipient/code.
+This does not certify logging behavior inside every optional upstream provider.

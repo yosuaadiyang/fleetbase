@@ -30,7 +30,7 @@ Model::withoutEvents(function()use(&$state,&$company,&$users,$adminRole,$viewer,
   $email=str_replace('_','-',$actor).'@release-qa.example.test';
   $secret=$state['users'][$actor]['password']??bin2hex(random_bytes(24));
   $u=User::firstOrNew(['email'=>$email]);
-  $u->forceFill(['uuid'=>$u->uuid?:Str::uuid()->toString(),'public_id'=>'user_releaseqa_'.$actor,'name'=>'Release QA '.str_replace('_',' ',$actor),'username'=>'releaseqa_'.$actor,'slug'=>'releaseqa-'.$actor,'email'=>$email,'password'=>$secret,'company_uuid'=>$company[$tenant]->uuid,'type'=>str_starts_with($actor,'driver')?'driver':'user','status'=>'active','email_verified_at'=>now(),'timezone'=>'Asia/Jakarta','country'=>'ID'])->save();
+  $u->forceFill(['uuid'=>$u->uuid?:Str::uuid()->toString(),'public_id'=>'user_releaseqa_'.$actor,'name'=>'Release QA '.str_replace('_',' ',$actor),'username'=>'releaseqa_'.$actor,'slug'=>'releaseqa-'.$actor,'email'=>$email,'phone'=>(str_starts_with($actor,'driver')||$actor==='staff_driver_a')?'+120255501'.str_pad((string)count($users),2,'0',STR_PAD_LEFT):null,'password'=>$secret,'company_uuid'=>$company[$tenant]->uuid,'type'=>str_starts_with($actor,'driver')?'driver':'user','status'=>'active','email_verified_at'=>now(),'timezone'=>'Asia/Jakarta','country'=>'ID'])->save();
   $role=str_starts_with($actor,'owner')?$adminRole:($actor==='viewer_a'?$viewer:(in_array($actor,['dispatcher_a','staff_driver_a'],true)?$dispatcher:null));
   $membership=Fleetbase\Models\CompanyUser::firstOrNew(['company_uuid'=>$company[$tenant]->uuid,'user_uuid'=>$u->uuid]);
   // UUID traits use model events, disabled only while creating synthetic rows.
@@ -42,7 +42,7 @@ Model::withoutEvents(function()use(&$state,&$company,&$users,$adminRole,$viewer,
    $driver=Fleetbase\FleetOps\Models\Driver::firstOrNew(['public_id'=>'driver_releaseqa_'.$actor]);
    $driver->forceFill(['uuid'=>$driver->uuid?:Str::uuid()->toString(),'user_uuid'=>$u->uuid,'company_uuid'=>$company[$tenant]->uuid,'status'=>'available','online'=>false,'location'=>new Fleetbase\LaravelMysqlSpatial\Types\Point(-6.1754,106.8272)])->save();
   }
-  $state['users'][$actor]=['identity'=>$email,'password'=>$secret,'uuid'=>$u->uuid,'public_id'=>$u->public_id,'company_uuid'=>$company[$tenant]->uuid,'driver_public_id'=>$driver?->public_id];
+  $state['users'][$actor]=['identity'=>$email,'phone'=>$u->phone,'password'=>$secret,'uuid'=>$u->uuid,'public_id'=>$u->public_id,'company_uuid'=>$company[$tenant]->uuid,'driver_public_id'=>$driver?->public_id];
   $users[$actor]=$u;
  }
 });
