@@ -61,3 +61,22 @@ Caddy sites, keep the previous image/configuration as rollback material, validat
 Nginx/Caddy, and verify public flows and API health after deployment. The original
 audit did not test authenticated tenant isolation, billing or real order data;
 the user currently has no dedicated test account/order for those acceptance tests.
+
+## Authenticated QA fixes — 2026-10-15
+
+- Point serialization converts valid text coordinates to JSON numbers, preserves
+  longitude/latitude order and rejects blanks, non-finite and out-of-range inputs.
+  Manual Place creation previously failed in the API GeoJSON parser because
+  positions contained strings. Four real Ember transform regressions cover this.
+- Live order panels exclude unsaved/deleted Ember Data records and empty public
+  ids. Opening/canceling New Order no longer introduces Undefined draft rows.
+- All sixteen console locales define the accessible search label used by resource
+  headers, instead of announcing a missing-translation diagnostic.
+- Fleet import uses a self-hosted, empty XLSX template instead of the missing
+  upstream S3 object. The first row is Name; other columns are not supported by
+  the pinned Fleet importer. One-row upload/import was verified with labeled
+  synthetic data.
+
+Smoke navigation is separate from complete transaction/permission coverage.
+Do not infer tenant isolation, dispatch, provider delivery or payment behavior
+from a rendered screen or a test account with Administrator access.

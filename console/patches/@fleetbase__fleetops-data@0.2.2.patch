@@ -54,3 +54,33 @@ index c1488070b352db778de511be65f8a61957107c2e..fc2b7764ae86b3bc8bc125ac53faa995
              return false;
          }
  
+diff --git a/addon/transforms/point.js b/addon/transforms/point.js
+--- a/addon/transforms/point.js
++++ b/addon/transforms/point.js
+@@ -1,6 +1,7 @@
+ import Transform from '@ember-data/serializer/transform';
+ import Point from '../utils/geojson/point';
+ import { isNone } from '@ember/utils';
++import isValidCoordinates from '@fleetbase/ember-core/utils/is-valid-coordinates';
+ 
+ export default class PointTransform extends Transform {
+     deserialize(serialized) {
+@@ -16,6 +17,17 @@
+             return new Point(0, 0);
+         }
+ 
+-        return new Point(deserialized);
++        const point = new Point(deserialized);
++        const coordinates = point.coordinates;
++        // Text inputs emit strings; GeoJSON positions must contain JSON numbers.
++        // Reject incomplete/invalid input rather than coercing blanks to zero.
++        if (
++            !isValidCoordinates(coordinates?.[1], coordinates?.[0]) ||
++            !coordinates.every((value) => (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) && Number.isFinite(Number(value)))
++        ) {
++            throw new TypeError('Point coordinates must contain valid latitude and longitude numbers.');
++        }
++        point.coordinates = coordinates.map(Number);
++        return point;
+     }
+ }

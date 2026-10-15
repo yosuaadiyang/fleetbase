@@ -12,8 +12,8 @@ overrides:
 patchedDependencies:
   '@fleetbase/customer-portal-engine@0.0.15': 025663a8f0cef0431d6125a4698d34a40199e6099ca01bc4128f4bb9cbf64378
   '@fleetbase/ember-core@0.3.25': ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211
-  '@fleetbase/fleetops-data@0.2.2': 752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7
-  '@fleetbase/fleetops-engine@0.6.71': ffd67a50a1f27bdc4c39d3d4c4164b236a87e694f3337133ecf9406c42170c04
+  '@fleetbase/fleetops-data@0.2.2': ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca
+  '@fleetbase/fleetops-engine@0.6.71': b9c56ca8ad2dd38a396012c12a1416dc00410c7dee4b36c0900aa5a22ead6d5a
 
 importers:
 
@@ -39,10 +39,10 @@ importers:
         version: 0.4.5(efbb41604fda61dbc8af0fa44a49d592)
       '@fleetbase/fleetops-data':
         specifier: ^0.2.2
-        version: 0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)
+        version: 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/fleetops-engine':
         specifier: ^0.6.71
-        version: 0.6.71(patch_hash=ffd67a50a1f27bdc4c39d3d4c4164b236a87e694f3337133ecf9406c42170c04)(93581af21a6bd520cd4865ca07cdab92)
+        version: 0.6.71(patch_hash=b9c56ca8ad2dd38a396012c12a1416dc00410c7dee4b36c0900aa5a22ead6d5a)(93581af21a6bd520cd4865ca07cdab92)
       '@fleetbase/iam-engine':
         specifier: ^0.1.13
         version: 0.1.13(93581af21a6bd520cd4865ca07cdab92)
@@ -10985,7 +10985,7 @@ snapshots:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/ember-ui': 0.4.5(efbb41604fda61dbc8af0fa44a49d592)
-      '@fleetbase/fleetops-data': 0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)
+      '@fleetbase/fleetops-data': 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/leaflet-routing-machine': 3.2.17
       '@fortawesome/ember-fontawesome': 2.0.0(ember-source@5.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@glimmer/component@1.1.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(rsvp@4.8.5)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3)))(rollup@2.80.0)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3))
       '@fortawesome/fontawesome-svg-core': 6.4.0
@@ -11140,7 +11140,7 @@ snapshots:
       '@event-calendar/core': 5.12.0
       '@fleetbase/ember-accounting': 0.0.1(ember-source@5.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@glimmer/component@1.1.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(rsvp@4.8.5)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3)))(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)
-      '@fleetbase/fleetops-data': 0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)
+      '@fleetbase/fleetops-data': 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@floating-ui/dom': 1.8.0
       '@fortawesome/ember-fontawesome': 2.0.0(ember-source@5.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@glimmer/component@1.1.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(rsvp@4.8.5)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3)))(rollup@2.80.0)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3))
       '@fortawesome/fontawesome-svg-core': 6.4.0
@@ -11244,7 +11244,7 @@ snapshots:
       - webpack-command
       - yaml
 
-  '@fleetbase/fleetops-data@0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)':
+  '@fleetbase/fleetops-data@0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)
@@ -11265,12 +11265,12 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@fleetbase/fleetops-engine@0.6.71(patch_hash=ffd67a50a1f27bdc4c39d3d4c4164b236a87e694f3337133ecf9406c42170c04)(93581af21a6bd520cd4865ca07cdab92)':
+  '@fleetbase/fleetops-engine@0.6.71(patch_hash=b9c56ca8ad2dd38a396012c12a1416dc00410c7dee4b36c0900aa5a22ead6d5a)(93581af21a6bd520cd4865ca07cdab92)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/ember-ui': 0.4.5(efbb41604fda61dbc8af0fa44a49d592)
-      '@fleetbase/fleetops-data': 0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)
+      '@fleetbase/fleetops-data': 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/leaflet-routing-machine': 3.2.17
       '@fortawesome/ember-fontawesome': 2.0.0(ember-source@5.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@glimmer/component@1.1.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(rsvp@4.8.5)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3)))(rollup@2.80.0)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3))
       '@fortawesome/fontawesome-svg-core': 6.4.0
@@ -11407,7 +11407,7 @@ snapshots:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/ember-ui': 0.4.5(efbb41604fda61dbc8af0fa44a49d592)
-      '@fleetbase/fleetops-data': 0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)
+      '@fleetbase/fleetops-data': 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fortawesome/ember-fontawesome': 2.0.0(ember-source@5.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@glimmer/component@1.1.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(rsvp@4.8.5)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3)))(rollup@2.80.0)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3))
       '@fortawesome/fontawesome-svg-core': 6.4.0
       '@fortawesome/free-brands-svg-icons': 6.4.0
@@ -11521,7 +11521,7 @@ snapshots:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/ember-ui': 0.4.5(efbb41604fda61dbc8af0fa44a49d592)
-      '@fleetbase/fleetops-data': 0.2.2(patch_hash=752a1604f8017aec3559d2c6a062ab6c88428342533be223caca3a3e2cb617d7)(64e6ffffd74b26ae4c6e9311a1e0461b)
+      '@fleetbase/fleetops-data': 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fortawesome/ember-fontawesome': 2.0.0(ember-source@5.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@glimmer/component@1.1.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(rsvp@4.8.5)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3)))(rollup@2.80.0)(supports-color@8.1.1)(webpack@5.109.2(clean-css@5.3.3)(postcss@8.5.26)(uglify-js@3.19.3))
       '@fortawesome/fontawesome-svg-core': 6.4.0
       '@fortawesome/free-brands-svg-icons': 6.4.0

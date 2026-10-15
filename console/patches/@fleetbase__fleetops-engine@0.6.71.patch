@@ -53,3 +53,50 @@ index 8067095f1e41a27319f276be856c174e687ed114..6e233d92c6fa84544ddb0dd7266252f8
              }
          });
  
+diff --git a/addon/services/order-list-overlay.js b/addon/services/order-list-overlay.js
+--- a/addon/services/order-list-overlay.js
++++ b/addon/services/order-list-overlay.js
+@@ -79,8 +79,8 @@
+     }
+ 
+     @task *load() {
+-        const loadedOrders = this.store.peekAll('order');
+-        const excludeIds = loadedOrders.map((o) => o.public_id);
++        const loadedOrders = this.store.peekAll('order').filter((order) => !order.isNew && !order.isDeleted);
++        const excludeIds = loadedOrders.map((o) => o.public_id).filter(Boolean);
+ 
+         try {
+             // Run requests in sequence for clarity; convert to Promise.all if backend allows
+@@ -176,7 +176,8 @@
+     #peekOrders(filterFn) {
+         const records = this.store.peekAll('order');
+         const predicate = typeof filterFn === 'function' ? filterFn : () => true;
+-        return records.filter(predicate);
++        // New/canceled form records live in Ember Data but are not dispatchable orders.
++        return records.filter((order) => !order.isNew && !order.isDeleted && predicate(order));
+     }
+ 
+     #peekUnassignedOrders() {
+diff --git a/addon/services/fleet-actions.js b/addon/services/fleet-actions.js
+--- a/addon/services/fleet-actions.js
++++ b/addon/services/fleet-actions.js
+@@ -1,5 +1,6 @@
+ import ResourceActionService, { inject as service } from '@fleetbase/ember-core/services/resource-action';
+ import { action } from '@ember/object';
++import window from 'ember-window-mock';
+ import { PANEL_DEFAULTS, closePanelsThen, registeredPanelTabs } from '../utils/context-panel';
+ 
+ export default class FleetActionsService extends ResourceActionService {
+@@ -8,7 +9,11 @@
+ 
+     constructor() {
+         super(...arguments);
+-        this.initialize('fleet', { defaultAttributes: { status: 'active' } });
++        this.initialize('fleet', {
++            defaultAttributes: { status: 'active' },
++            baseAssetUrl: window.location.origin,
++            importTemplateName: 'Contrust_Fleet_Import_Template.xlsx',
++        });
+     }
+ 
+     transition = {
