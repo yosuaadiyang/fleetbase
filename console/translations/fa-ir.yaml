@@ -44,6 +44,7 @@ common:
   select: انتخاب
   deselect: لغو انتخاب
   search: جستجو
+  search-input: جستجو
   filter: فیلتر
   sort: مرتب‌سازی
   view-all: مشاهده همه

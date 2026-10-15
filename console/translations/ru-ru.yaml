@@ -40,6 +40,7 @@ common:
   select: Выбрать
   deselect: Снять выбор
   search: Поиск
+  search-input: Поиск
   filter: Фильтр
   sort: Сортировать
   view-all: Просмотреть все

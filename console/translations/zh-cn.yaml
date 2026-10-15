@@ -40,6 +40,7 @@ common:
   select: 选择
   deselect: 取消选择
   search: 搜索
+  search-input: 搜索
   filter: 筛选
   sort: 排序
   view-all: 查看全部

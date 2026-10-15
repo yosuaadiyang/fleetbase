@@ -40,6 +40,7 @@ common:
   select: Сонгох
   deselect: Сонголтыг цуцлах
   search: Хайх
+  search-input: Хайх
   filter: Шүүлтүүр
   sort: Эрэмбэлэх
   view-all: Бүгдийг харах

@@ -40,6 +40,7 @@ common:
   select: Chọn
   deselect: Bỏ chọn
   search: Tìm kiếm
+  search-input: Tìm kiếm
   filter: Lọc
   sort: Sắp xếp
   view-all: Xem tất cả

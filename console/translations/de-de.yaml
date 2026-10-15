@@ -45,6 +45,7 @@ common:
   select: Auswählen
   deselect: Abwählen
   search: Suchen
+  search-input: Suchen
   filter: Filtern
   sort: Sortieren
   view-all: Alle anzeigen

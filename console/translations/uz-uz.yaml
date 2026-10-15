@@ -45,6 +45,7 @@ common:
   select: Tanlash
   deselect: Tanlovni bekor qilish
   search: Qidirish
+  search-input: Qidirish
   filter: Filtr
   sort: Saralash
   view-all: Hammasini ko'rish
