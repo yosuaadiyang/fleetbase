@@ -30,7 +30,7 @@ services:
       options: {max-size: "10m", max-file: "3"}
 
   application:
-    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:tracking-20261015}
+    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:release-20261015}
     build:
       context: .
       dockerfile: docker/brevo/Dockerfile
@@ -39,14 +39,14 @@ services:
       OSRM_TIMEOUT: "5"
       OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
   queue:
-    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:tracking-20261015}
+    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:release-20261015}
     stop_grace_period: 120s
     environment:
       OSRM_HOST: http://routing:5000
       OSRM_TIMEOUT: "5"
       OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
   scheduler:
-    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:tracking-20261015}
+    image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:release-20261015}
     stop_grace_period: 120s
     environment:
       OSRM_HOST: http://routing:5000

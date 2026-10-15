@@ -27,3 +27,24 @@ necessary to verify the actual browser session and account.
 
 Deploy with environment/volumes preserved, graceful queue/scheduler restarts,
 API health and routing checks, and a matching published source archive.
+
+## Release authorization checks — 2026-10-15
+
+The consumable API middleware now applies both explicit Sanctum token expiry and
+the configured global lifetime. Previously it found the token by hash without
+applying these lifetime checks, even though console token login rejected expiry.
+Eight real Sanctum/SQLite-memory checks cover fresh, explicit/global expiry,
+unknown/revoked tokens, disabled global expiry and invalid lifetime configuration.
+
+Staff IAM permissions also apply when a staff token calls FleetOps consumable
+API controllers. These controllers do not implement the console resource metadata
+interface, so permission resolution maps their server-side controller resource
+and action to the existing fleet-ops IAM namespace. Standard CRUD and registered
+schema actions are respected; other reads require view and other writes require
+update. Managed driver/customer profiles retain their existing controller scopes
+and require separate scope tests. This is not a claim of full role/tenant coverage
+for every extension or API surface.
+
+Authenticated permission denial returns 403 instead of 401. Anonymous or expired
+credentials continue returning 401. The isolated HTTP contract includes positive
+owner/viewer controls so denying every request cannot make the suite pass.

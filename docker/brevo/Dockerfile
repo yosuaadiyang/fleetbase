@@ -7,6 +7,10 @@ RUN echo '70d794cabbb4076fdb1df4755a62c1c323b60ed37bc023b915c97e4bcf7012be  /fle
 COPY docker/routing/api/OSRM.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/OSRM.php
 RUN echo '4ca14e767c2155b4d848ce3b70cb9afe65870e432c2623535985fa34b1f971ac  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/AuthController.php' | sha256sum --check
 COPY docker/auth/controllers/AuthController.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/AuthController.php
+RUN echo '612d8893b975f6a4d63dc2ebe56a8851e94bde7a27a625889866cf0372f0746f  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthorizationGuard.php' | sha256sum --check
+COPY docker/auth/middleware/AuthorizationGuard.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthorizationGuard.php
+RUN echo 'b477d4b0d76f74f05e52821b2ace637745f0e8f89daf7181748a987b4e5d082d  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php' | sha256sum --check
+COPY docker/auth/middleware/AuthenticateOnceWithBasicAuth.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php
 COPY docker/auth/api/ /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/
 COPY docker/auth/tests/ /tmp/contrust-auth-tests/
 RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginRequest.php \
@@ -14,6 +18,7 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginReque
     && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/TwoFaValidationRequest.php \
     && php /tmp/contrust-auth-tests/request-validation-test.php \
     && php /tmp/contrust-auth-tests/token-login-test.php \
+    && php /tmp/contrust-auth-tests/api-token-lifetime-test.php \
     && rm -rf /tmp/contrust-auth-tests
 
 RUN echo '77ee2b924bbc059808d2b6849c4bbfc47f601aeec5b4cf4814904422a2005ef5  /fleetbase/api/app/Providers/AppServiceProvider.php' | sha256sum --check
