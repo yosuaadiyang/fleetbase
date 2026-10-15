@@ -64,3 +64,15 @@ COPY docker/tracking/tests/ /tmp/contrust-tracking-tests/
 RUN php -l /fleetbase/api/app/Http/Kernel.php \
     && php /tmp/contrust-tracking-tests/public-tracking-test.php \
     && rm -rf /tmp/contrust-tracking-tests
+
+RUN echo '1b8e254e9725d6694aecc2e2d47b8c187b4e797c5290b060eb15c518d5b64cfa  /fleetbase/api/vendor/fleetbase/core-api/src/Support/SocketCluster/SocketClusterService.php' | sha256sum --check \
+    && echo '836351342e2d3ef8e4bc27af9f46bb8f731cd2bc9f9788764bb5ff94fe6664a3  /fleetbase/api/app/Providers/RouteServiceProvider.php' | sha256sum --check
+COPY docker/socket/api/SocketClusterService.php /fleetbase/api/vendor/fleetbase/core-api/src/Support/SocketCluster/SocketClusterService.php
+COPY api/app/Providers/RouteServiceProvider.php /fleetbase/api/app/Providers/RouteServiceProvider.php
+COPY api/app/Support/SocketAccessTickets.php api/app/Support/SocketChannelAccess.php /fleetbase/api/app/Support/
+COPY api/app/Http/Controllers/SocketAuthorizationController.php /fleetbase/api/app/Http/Controllers/SocketAuthorizationController.php
+COPY api/app/Http/Middleware/SocketSessionCookie.php /fleetbase/api/app/Http/Middleware/SocketSessionCookie.php
+RUN php -l /fleetbase/api/app/Support/SocketAccessTickets.php \
+    && php -l /fleetbase/api/app/Support/SocketChannelAccess.php \
+    && php -l /fleetbase/api/app/Http/Controllers/SocketAuthorizationController.php \
+    && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Support/SocketCluster/SocketClusterService.php

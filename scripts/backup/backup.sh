@@ -26,11 +26,14 @@ mv "$state/staging/database/contrust.sql.partial" "$state/staging/database/contr
 python3 - "$state/staging/config" <<'PY'
 import pathlib,shutil,sys,json,subprocess
 base=pathlib.Path('/opt/contrust');dest=pathlib.Path(sys.argv[1])
-for name in ['.env','api/.env','console/fleetbase.config.json','docker-compose.yml','docker-compose.override.yml','docker-compose.routing.yml','docker/caddy/Caddyfile','docker/httpd/vhost.conf']:
+for name in ['.env','api/.env','console/fleetbase.config.json','docker-compose.yml','docker-compose.override.yml','docker-compose.routing.yml','docker-compose.socket-security.yml','docker/caddy/Caddyfile','docker/httpd/vhost.conf']:
  p=base/name
  if p.is_file():
   q=dest/name;q.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,q)
-images={s:subprocess.check_output(['docker','inspect','--format','{{.Image}}','contrust-'+s+'-1'],text=True).strip() for s in ['application','queue','scheduler','console','database','cache']}
+socket_env=pathlib.Path('/etc/contrust-socket/publisher.env')
+if socket_env.is_file():
+ q=dest/'socket'/'publisher.env';q.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(socket_env,q)
+images={s:subprocess.check_output(['docker','inspect','--format','{{.Image}}','contrust-'+s+'-1'],text=True).strip() for s in ['application','queue','scheduler','console','database','cache','socket']}
 (dest/'images.json').write_text(json.dumps(images,indent=2)+'\n')
 PY
 # Keep the source corresponding to the running console/API release for recovery.

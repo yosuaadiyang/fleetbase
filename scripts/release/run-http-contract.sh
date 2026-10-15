@@ -40,3 +40,19 @@ run_fixture seed.php seed
 run_fixture http-contract.php delivery
 run_fixture driver-otp-contract.php otp
 run_fixture place-input-contract.php place
+
+run_fixture socket-contract.php socket
+
+socket_image=$(python3 - "$envfile" <<'PYIMAGE'
+import pathlib,sys
+values=dict(l.split('=',1) for l in pathlib.Path(sys.argv[1]).read_text().splitlines() if '=' in l)
+image=values['CONTRUST_QA_SOCKET_IMAGE']
+assert image.startswith('sha256:') and len(image)==71
+print(image)
+PYIMAGE
+)
+volume=$(docker inspect contrust-release-qa-application-1 --format '{{range .Mounts}}{{if eq .Destination "/fleetbase/api/storage"}}{{.Name}}{{end}}{{end}}')
+docker run --rm --network contrust-release-qa_isolated --memory 192m --cpus 0.5 \
+ -v "$volume:/qa:ro" -v "$root/docker/socket/tests/transport.js:/usr/src/transport.js:ro" \
+ --entrypoint node "$socket_image" /usr/src/transport.js > "$report_file"
+python3 scripts/release/check-qa-results.py socket-transport "$report_file"

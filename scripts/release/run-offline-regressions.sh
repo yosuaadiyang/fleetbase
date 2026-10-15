@@ -21,3 +21,5 @@ docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32
  --entrypoint php -v "$root/docker/routing:/opt/contrust-routing:ro" \
  "$image" /opt/contrust-routing/tests/osrm-helper-test.php
 run_test routing real-vendor-test.php
+
+run_test socket publisher-test.php

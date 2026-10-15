@@ -1,0 +1,20 @@
+# Append to the existing COMPOSE_FILE. Keep the publisher key outside Git.
+services:
+  socket:
+    image: ${CONTRUST_SOCKET_IMAGE:?Pinned secured socket image required}
+    env_file: [/etc/contrust-socket/publisher.env]
+    environment:
+      CONTRUST_SOCKET_AUTH_URL: http://application:8000/int/v1/contrust/socket-authorize
+    mem_limit: 192m
+    cpus: 0.5
+    pids_limit: 96
+    read_only: true
+    tmpfs: [/tmp:size=8m,noexec,nosuid]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "require('http').get('http://127.0.0.1:8000/health-check',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging: {driver: json-file, options: {max-size: "5m", max-file: "2"}}

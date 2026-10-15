@@ -9,6 +9,7 @@ images={
  'CONTRUST_QA_API_IMAGE':args.api_image,
  'CONTRUST_QA_DB_IMAGE':'mysql:8.0-oracle',
  'CONTRUST_QA_REDIS_IMAGE':'redis:7-alpine',
+ 'CONTRUST_QA_SOCKET_IMAGE':'contrust-socket:release-qa',
 }
 values={key:subprocess.check_output(['docker','image','inspect','--format','{{.Id}}',tag],text=True).strip() for key,tag in images.items()}
 if any(not v.startswith('sha256:') or len(v)!=71 for v in values.values()):

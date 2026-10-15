@@ -1,0 +1,11 @@
+# Contrust realtime boundary
+
+The pinned stock SocketCluster server accepts unauthenticated subscriptions and client publication. The secured server permits protocol connection before mobile login, but subscribes only after an API-issued opaque, Secure/HttpOnly/SameSite=Strict cookie. The cookie path is `/` because Android React Native obtains WebSocket cookies at the root origin. No HTTP action accepts that cookie as API authentication.
+
+Tickets last ten minutes, reference the current personal access token and organization, and are refreshed by authenticated HTTP requests. Console heartbeats every minute; the published Android client's shared cookie jar still requires physical device verification. Every subscription and every delivered event checks current permissions, token expiry/revocation and driver assignment against the private API. Failures suppress delivery. Driver sessions cannot acquire staff scope even when the underlying user also has a staff membership.
+
+Only backend publishers can send events. Their derived HMAC capability is attached only to the internal `socket:8000` endpoint. The socket receives the derived key, never APP_KEY. API callbacks require that key. Keep `/etc/contrust-socket/publisher.env` root-only, include it in encrypted recovery backups, and regenerate it after rotating APP_KEY. Never publish it in an image, Git, logs or frontend configuration.
+
+Append `docker-compose.socket-security.yml` to existing production Compose files; preserve all other services and Caddy sites. Keep public socket routes closed during rollout. Reopen only after the secured image, private publisher path, authorized subscriber and anonymous/foreign denial are verified. Rollback the application while retaining public socket containment if verification fails.
+
+The initial bounded pilot allows 100 channels per connection, 64 KiB messages, 32 pending authorization calls and 1,200 private callbacks per minute. This is not a capacity certification. Optional chat/device/API channels are denied until separately specified and tested. Connection establishment does not mean authenticated access. Existing idle native sessions may need reconnect after the short ticket expires; validate the published Android app before field use.

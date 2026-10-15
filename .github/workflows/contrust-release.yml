@@ -19,6 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the patched release candidate (no optional secrets)
         run: docker build -f docker/brevo/Dockerfile -t contrust-api:release-qa .
+      - name: Build pinned secured socket candidate
+        run: docker build -f docker/socket/Dockerfile -t contrust-socket:release-qa .
       - name: Auth, email, tracking, and routing regressions without network
         run: bash scripts/release/run-offline-regressions.sh contrust-api:release-qa
       - name: Fetch pinned QA infrastructure images
@@ -64,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pnpm exec ember test --filter='/public audit|point serialization|load-runtime-config|load-intl-polyfills|intl locale loading|initialize-random-uuid-polyfill|fleetbase-attribution/' | tee /tmp/contrust-frontend-tests.log
+          pnpm exec ember test --filter='/public audit|point serialization|load-runtime-config|load-intl-polyfills|intl locale loading|initialize-random-uuid-polyfill|fleetbase-attribution|socket-session/' | tee /tmp/contrust-frontend-tests.log
           python3 ../scripts/release/check-frontend-results.py /tmp/contrust-frontend-tests.log
       - name: Production build
         working-directory: console
