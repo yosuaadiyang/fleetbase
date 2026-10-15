@@ -66,6 +66,11 @@ foreach([[null,403],[$secret,200]] as [$key,$expected]){
  $raw=file_get_contents('http://127.0.0.1:8000/int/v1/contrust/socket-authorize',false,$ctx);
  ck($key?'private authorization permits legitimate own channel':'public authorization callback requires publisher secret',str_contains($http_response_header[0],(string)$expected));
 }
+$logoutTicket=SocketAccessTickets::issue($plain->accessToken);
+$ctx=stream_context_create(['http'=>['method'=>'POST','ignore_errors'=>true,'header'=>"Authorization: Bearer ".$plain->plainTextToken."\r\nAccept: application/json"]]);
+file_get_contents('http://127.0.0.1:8000/int/v1/auth/logout',false,$ctx);
+ck('console logout revokes bearer token',str_contains($http_response_header[0],'200')&&PersonalAccessToken::find($plain->accessToken->id)===null);
+ck('console logout invalidates existing socket ticket',SocketAccessTickets::resolve($logoutTicket)===null);
 // Private synthetic tickets only, for the actual transport contract; never printed.
 $fixture=['tickets'=>$tickets,'own_channel'=>$own,'foreign_channel'=>'driver.'.$db->public_id,'publisher_key'=>$secret];
 file_put_contents(storage_path('app/release-qa/socket-transport.json'),json_encode($fixture));chmod(storage_path('app/release-qa/socket-transport.json'),0600);

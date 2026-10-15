@@ -188,9 +188,13 @@ class AuthController extends Controller
         $token = $request->bearerToken();
         Cache::forget("session_validation_{$token}");
 
+        // Local session invalidation alone leaves its bearer and socket ticket valid.
+        if (is_string($token) && $accessToken = PersonalAccessToken::findToken($token)) {
+            $accessToken->delete();
+        }
         Auth::logout();
 
-        return response()->json(['Goodbye']);
+        return response()->json(['Goodbye'])->withoutCookie('contrust_socket', '/');
     }
 
     /**
