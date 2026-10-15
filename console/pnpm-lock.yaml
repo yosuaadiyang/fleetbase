@@ -13,7 +13,7 @@ patchedDependencies:
   '@fleetbase/customer-portal-engine@0.0.15': 025663a8f0cef0431d6125a4698d34a40199e6099ca01bc4128f4bb9cbf64378
   '@fleetbase/ember-core@0.3.25': ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211
   '@fleetbase/fleetops-data@0.2.2': ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca
-  '@fleetbase/fleetops-engine@0.6.71': b9c56ca8ad2dd38a396012c12a1416dc00410c7dee4b36c0900aa5a22ead6d5a
+  '@fleetbase/fleetops-engine@0.6.71': 9123d4db94f31be9722c1c9aeae6f25bebb8196609f33202658c61746c3fe5c5
 
 importers:
 
@@ -42,7 +42,7 @@ importers:
         version: 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(64e6ffffd74b26ae4c6e9311a1e0461b)
       '@fleetbase/fleetops-engine':
         specifier: ^0.6.71
-        version: 0.6.71(patch_hash=b9c56ca8ad2dd38a396012c12a1416dc00410c7dee4b36c0900aa5a22ead6d5a)(93581af21a6bd520cd4865ca07cdab92)
+        version: 0.6.71(patch_hash=9123d4db94f31be9722c1c9aeae6f25bebb8196609f33202658c61746c3fe5c5)(93581af21a6bd520cd4865ca07cdab92)
       '@fleetbase/iam-engine':
         specifier: ^0.1.13
         version: 0.1.13(93581af21a6bd520cd4865ca07cdab92)
@@ -11265,7 +11265,7 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@fleetbase/fleetops-engine@0.6.71(patch_hash=b9c56ca8ad2dd38a396012c12a1416dc00410c7dee4b36c0900aa5a22ead6d5a)(93581af21a6bd520cd4865ca07cdab92)':
+  '@fleetbase/fleetops-engine@0.6.71(patch_hash=9123d4db94f31be9722c1c9aeae6f25bebb8196609f33202658c61746c3fe5c5)(93581af21a6bd520cd4865ca07cdab92)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@fleetbase/ember-core': 0.3.25(patch_hash=ca4a198b548507f5dcd19317b585a9b09abc96ab4311bd53fcd54a2626998211)(64e6ffffd74b26ae4c6e9311a1e0461b)

@@ -25,3 +25,12 @@ RUN php -l /fleetbase/api/app/Providers/AppServiceProvider.php \
     && php -l /fleetbase/api/app/Mail/BrevoApiTransport.php \
     && php /tmp/contrust-brevo-tests/brevo-transport-test.php \
     && rm -rf /tmp/contrust-brevo-tests
+
+RUN echo '58755a90f0edb0a784b0b489e08724f6986500d494d851a9e92f44522ddc01dd  /fleetbase/api/app/Http/Kernel.php' | sha256sum --check
+COPY api/app/Http/Kernel.php /fleetbase/api/app/Http/Kernel.php
+COPY api/app/Http/Middleware/PublicOrderTracking.php /fleetbase/api/app/Http/Middleware/PublicOrderTracking.php
+COPY api/app/Support/PublicOrderTrackingPayload.php /fleetbase/api/app/Support/PublicOrderTrackingPayload.php
+COPY docker/tracking/tests/ /tmp/contrust-tracking-tests/
+RUN php -l /fleetbase/api/app/Http/Kernel.php \
+    && php /tmp/contrust-tracking-tests/public-tracking-test.php \
+    && rm -rf /tmp/contrust-tracking-tests

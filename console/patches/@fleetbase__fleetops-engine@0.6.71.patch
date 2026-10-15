@@ -100,3 +100,15 @@ diff --git a/addon/services/fleet-actions.js b/addon/services/fleet-actions.js
      }
  
      transition = {
+diff --git a/addon/components/order-tracking-lookup.hbs b/addon/components/order-tracking-lookup.hbs
+--- a/addon/components/order-tracking-lookup.hbs
++++ b/addon/components/order-tracking-lookup.hbs
+@@ -98,7 +98,7 @@
+                                     <div class="grid grid-cols-2 gap-2 mt-1 px-1">
+                                         <div class="flex flex-col text-xs">
+                                             <div class="font-semibold">Current ETA:</div>
+-                                            <div class="">{{format-duration this.order.tracker_data.eta.active_stop_seconds}}</div>
++                                            <div class="">{{#if (is-empty this.order.tracker_data.eta.active_stop_seconds)}}—{{else}}{{format-duration this.order.tracker_data.eta.active_stop_seconds}}{{/if}}</div>
+                                         </div>
+                                         <div class="flex flex-col text-xs">
+                                             <div class="font-semibold">ECT:</div>

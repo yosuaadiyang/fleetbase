@@ -80,3 +80,10 @@ the user currently has no dedicated test account/order for those acceptance test
 Smoke navigation is separate from complete transaction/permission coverage.
 Do not infer tenant isolation, dispatch, provider delivery or payment behavior
 from a rendered screen or a test account with Administrator access.
+
+Public tracking now projects an explicit response contract, recursively excluding
+internal notes, comments, files, company/customer identifiers, contact/security
+fields and financial metadata. The boundary is scoped to the public lookup
+controller action; authenticated order endpoints retain their contract. Malformed
+tracking query input is rejected before the typed controller. Unknown ETA remains
+null and is displayed as unavailable instead of a fabricated zero seconds.
