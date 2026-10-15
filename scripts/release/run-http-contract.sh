@@ -28,7 +28,15 @@ if ! "${compose[@]}" up -d --pull never database cache application; then
 fi
 "${compose[@]}" exec -T application php artisan migrate --force
 "${compose[@]}" exec -T application php artisan fleetbase:create-permissions
-"${compose[@]}" exec -T application php /opt/contrust-release-fixtures/seed.php
-"${compose[@]}" exec -T application php /opt/contrust-release-fixtures/http-contract.php
-"${compose[@]}" exec -T application php /opt/contrust-release-fixtures/driver-otp-contract.php
-"${compose[@]}" exec -T application php /opt/contrust-release-fixtures/place-input-contract.php
+report_file=$(mktemp)
+trap 'rm -f "$report_file"' EXIT
+run_fixture() {
+ local name=$1 kind=$2 status=0
+ "${compose[@]}" exec -T application php "/opt/contrust-release-fixtures/$name" > "$report_file" || status=$?
+ python3 scripts/release/check-qa-results.py "$kind" "$report_file"
+ test "$status" -eq 0
+}
+run_fixture seed.php seed
+run_fixture http-contract.php delivery
+run_fixture driver-otp-contract.php otp
+run_fixture place-input-contract.php place

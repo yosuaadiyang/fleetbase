@@ -44,3 +44,8 @@ verification records directly for synthetic identities; it never calls an
 external delivery provider. Its cache flush is guarded by the isolated database,
 synthetic-only marker and log-mail configuration. Recovery tests reuse the
 synthetic fixture password and print no credentials, codes or tokens.
+
+The runner validates each invocation's current stdout as structured JSON and
+checks minimum scenario counts and unique names. This also rejects Laravel CLI
+exception pages even if a framework exception handler accidentally exits zero.
+It never treats an old report file from a previous run as current evidence.
