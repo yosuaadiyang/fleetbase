@@ -38,3 +38,9 @@ The companion frontend job requires named regression suites and a TAP summary
 with passing tests and zero skipped/todo/failed tests before building production.
 This is targeted release coverage, not evidence that every upstream scaffold
 unit test or every business transaction has passed.
+
+The driver OTP contract runs after the delivery/role contract. It creates
+verification records directly for synthetic identities; it never calls an
+external delivery provider. Its cache flush is guarded by the isolated database,
+synthetic-only marker and log-mail configuration. Recovery tests reuse the
+synthetic fixture password and print no credentials, codes or tokens.

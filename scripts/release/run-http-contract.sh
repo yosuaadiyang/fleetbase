@@ -30,3 +30,4 @@ fi
 "${compose[@]}" exec -T application php artisan fleetbase:create-permissions
 "${compose[@]}" exec -T application php /opt/contrust-release-fixtures/seed.php
 "${compose[@]}" exec -T application php /opt/contrust-release-fixtures/http-contract.php
+"${compose[@]}" exec -T application php /opt/contrust-release-fixtures/driver-otp-contract.php

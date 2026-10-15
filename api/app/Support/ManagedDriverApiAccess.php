@@ -21,6 +21,12 @@ final class ManagedDriverApiAccess
         $action = $route ? $route->getActionMethod() : '';
         $fleetOpsApi = 'Fleetbase\\FleetOps\\Http\\Controllers\\Api\\v1\\';
 
+        if ($class === $fleetOpsApi . 'DriverController') {
+            if ($response = DriverAuthentication::check($request, $action)) {
+                return $response;
+            }
+        }
+
         // The app's embedded bootstrap key must never act as its admin creator.
         if ($request->attributes->get('contrust.navigator_bootstrap') === true) {
             return $class === $fleetOpsApi . 'DriverController'

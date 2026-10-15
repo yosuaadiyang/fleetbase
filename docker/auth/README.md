@@ -82,3 +82,26 @@ This gate currently proves a single pickup/dropoff transport workflow. Physical
 Android background location, push, offline retry, multi-stop workflows, private
 file delivery URLs, and optional Navigator resource families need separate
 acceptance tests before being advertised.
+
+## Driver authentication and verification
+
+The exact pinned DriverController artifact is checked before applying the build
+patch. Verification accepts only a six-digit string and the `driver_login`
+purpose; recovery codes and account-creation purposes cannot mint login tokens.
+Matching codes must have a future expiry and are locked, consumed and exchanged
+for a token in one database transaction. Password recovery also consumes its
+code and revokes sessions in the same transaction. Production verification has
+no review-account bypass. Driver identity lookup and initial organization
+selection are bound to the authenticated organization credential.
+
+`DriverAuthentication` validates auth request shapes before controller queries
+and uses the shared cache limiter: 10 code/password attempts per identity in
+five minutes, three send requests per identity in five minutes, and 120 auth
+requests per IP in five minutes. Code and password groups are separate; login
+and reset code verification share the code group. Limits do not depend on the
+bootstrap credential, so rotating public organization keys cannot reset them.
+429 includes Retry-After. These limits also apply to privileged API callers.
+The dedicated synthetic OTP suite sends no email or SMS and covers replay,
+expiry, wrong purpose/identity/organization, malformed input, reset consumption
+and request limits. The single-worker HTTP harness does not prove concurrent
+Octane behavior or provider delivery.
