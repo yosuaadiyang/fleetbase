@@ -41,10 +41,44 @@ API controllers. These controllers do not implement the console resource metadat
 interface, so permission resolution maps their server-side controller resource
 and action to the existing fleet-ops IAM namespace. Standard CRUD and registered
 schema actions are respected; other reads require view and other writes require
-update. Managed driver/customer profiles retain their existing controller scopes
-and require separate scope tests. This is not a claim of full role/tenant coverage
+update. Unknown FleetOps permission mappings fail closed. This is not a claim of full role/tenant coverage
 for every extension or API surface.
 
 Authenticated permission denial returns 403 instead of 401. Anonymous or expired
 credentials continue returning 401. The isolated HTTP contract includes positive
 owner/viewer controls so denying every request cannot make the suite pass.
+
+## Navigator driver boundary
+
+`App\Support\ManagedDriverApiAccess` scopes both managed driver accounts and
+staff-linked driver tokens to the token's owned, active driver profile. A driver
+may read/update safe profile fields, register their device, send validated GPS,
+toggle online status, and operate assigned orders through explicit delivery/POD
+actions. Generic organization resource administration is denied. Additional
+resource families (including chat, fuel and issue management) require dedicated
+ownership contracts before they are enabled for driver sessions.
+
+The embedded `NavigationAppLinker` credential only authorizes the driver login
+and recovery bootstrap actions; it no longer inherits the creating admin's API
+authority. No key or signed app-link is printed by QA.
+
+The exact vendor OrderController is checked by SHA-256 at build time before
+inserting a mandatory SQL assignment predicate for driver list queries. Its
+shared query cache is bypassed: vendor cache keys include company and URL inputs
+but not the actor or the server's assignment predicate. Sequential driver/staff
+and staff/driver HTTP controls verify isolation in both directions. This avoids
+mutable global model scopes in long-lived Octane workers.
+
+Driver activity writes use the canonical next activity from the server's flow;
+client events, completion flags and dispatch bypass inputs cannot override it.
+Mandatory POD references must belong to the same order and company. POD entity
+subjects are constrained to that order's payload. PNG signatures and PNG/JPEG/GIF
+photos are bounded by byte length and dimensions; saved photo extensions and
+MIME derive from image bytes rather than a supplied filename. The photo helper
+also works on local storage where an S3 bucket is absent. Ten standalone image
+cases supplement the real HTTP delivery/POD checks.
+
+This gate currently proves a single pickup/dropoff transport workflow. Physical
+Android background location, push, offline retry, multi-stop workflows, private
+file delivery URLs, and optional Navigator resource families need separate
+acceptance tests before being advertised.

@@ -23,10 +23,17 @@ class AuthenticateOnceWithBasicAuth
         $authenticationResponse = $this->authenticatedWithBasic($request);
 
         if ($authenticationResponse === true) {
-            // Staff sessions retain IAM permissions even when calling consumable API
-            // routes. Managed driver/customer profiles use their controller scopes.
             $user = $request->user();
-            if ($user instanceof User && $user->isStaffAccount() && !$user->isAdmin()) {
+            if ($user instanceof User) {
+                $profileResponse = \App\Support\ManagedDriverApiAccess::check($request, $user);
+                if ($profileResponse !== null) {
+                    return $profileResponse;
+                }
+            }
+            // Staff console sessions retain IAM on consumable API routes too.
+            $user = $request->user();
+            if ($user instanceof User && $user->isStaffAccount() && !$user->isAdmin()
+                && !$request->attributes->has('contrust.driver_uuid')) {
                 $requiredPermissions = Auth::resolvePermissionsFromRequest($request);
                 // Consumable FleetOps controllers do not implement the console's
                 // resource metadata methods, so resolve their registered IAM scope.
@@ -44,6 +51,9 @@ class AuthenticateOnceWithBasicAuth
                         'fleet-ops * ' . $resource,
                         'fleet-ops *',
                     ]);
+                    if ($requiredPermissions->isEmpty()) {
+                        return response()->json(['errors' => ['You do not have permission to perform this action.']], 403);
+                    }
                 }
                 if ($requiredPermissions->isNotEmpty() && $user->doesntHavePermissions($requiredPermissions)) {
                     return response()->json(['errors' => ['You do not have permission to perform this action.']], 403);
@@ -120,6 +130,8 @@ class AuthenticateOnceWithBasicAuth
             return response()->error('Oops! The api credentials provided were not valid', 401);
         }
 
+        $request->attributes->set('contrust.navigator_bootstrap', $apiCredential->name === 'NavigationAppLinker');
+
         // If OPTIONS set api key and continue
         if ($request->isMethod('OPTIONS')) {
             // Set api credential session
@@ -167,6 +179,7 @@ class AuthenticateOnceWithBasicAuth
     private function authenticateSanctumToken(PersonalAccessToken $sanctumToken, ?Request $request = null)
     {
         if ($sanctumToken && $sanctumToken->tokenable instanceof User) {
+            $request?->attributes->set('contrust.token_name', $sanctumToken->name);
             // Make sure company is set
             if (!Str::isUuid($sanctumToken->tokenable->company_uuid)) {
                 return response()->error('Oops! The api credentials provided were not valid', 401);

@@ -11,6 +11,13 @@ RUN echo '612d8893b975f6a4d63dc2ebe56a8851e94bde7a27a625889866cf0372f0746f  /fle
 COPY docker/auth/middleware/AuthorizationGuard.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthorizationGuard.php
 RUN echo 'b477d4b0d76f74f05e52821b2ace637745f0e8f89daf7181748a987b4e5d082d  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php' | sha256sum --check
 COPY docker/auth/middleware/AuthenticateOnceWithBasicAuth.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php
+COPY api/app/Support/ManagedDriverApiAccess.php /fleetbase/api/app/Support/ManagedDriverApiAccess.php
+COPY api/app/Support/ProofImageInput.php /fleetbase/api/app/Support/ProofImageInput.php
+COPY docker/auth/patch-driver-order.php /tmp/contrust-patch-driver-order.php
+RUN php /tmp/contrust-patch-driver-order.php \
+    && php -l /fleetbase/api/app/Support/ManagedDriverApiAccess.php \
+    && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/OrderController.php \
+    && rm /tmp/contrust-patch-driver-order.php
 COPY docker/auth/api/ /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/
 COPY docker/auth/tests/ /tmp/contrust-auth-tests/
 RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginRequest.php \
@@ -19,6 +26,7 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginReque
     && php /tmp/contrust-auth-tests/request-validation-test.php \
     && php /tmp/contrust-auth-tests/token-login-test.php \
     && php /tmp/contrust-auth-tests/api-token-lifetime-test.php \
+    && php /tmp/contrust-auth-tests/proof-image-test.php \
     && rm -rf /tmp/contrust-auth-tests
 
 RUN echo '77ee2b924bbc059808d2b6849c4bbfc47f601aeec5b4cf4814904422a2005ef5  /fleetbase/api/app/Providers/AppServiceProvider.php' | sha256sum --check

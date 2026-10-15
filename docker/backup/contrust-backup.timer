@@ -1,0 +1,8 @@
+[Unit]
+Description=Run Contrust encrypted backup every six hours
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:30:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+[Install]
+WantedBy=timers.target

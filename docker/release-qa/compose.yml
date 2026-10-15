@@ -1,0 +1,100 @@
+# Isolated, synthetic-data-only release QA. Never load the production env file.
+name: contrust-release-qa
+services:
+  database:
+    image: ${CONTRUST_QA_DB_IMAGE:?Pinned local database image required}
+    pull_policy: never
+    command: ["mysqld", "--skip-log-bin", "--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=30", "--mysqlx=0"]
+    environment:
+      MYSQL_DATABASE: contrust_release_qa
+      MYSQL_USER: contrust_qa
+      MYSQL_PASSWORD: ${CONTRUST_QA_DB_PASSWORD:?QA password required}
+      MYSQL_ROOT_PASSWORD: ${CONTRUST_QA_ROOT_PASSWORD:?QA root password required}
+    volumes:
+      - qa-database:/var/lib/mysql
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/10-contrust-qa.sh:ro
+    networks: [isolated]
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    logging: {driver: json-file, options: {max-size: "5m", max-file: "2"}}
+  cache:
+    image: ${CONTRUST_QA_REDIS_IMAGE:?Pinned local Redis image required}
+    pull_policy: never
+    command: ["redis-server", "--maxmemory", "32mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    networks: [isolated]
+    mem_limit: 64m
+    cpus: 0.2
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: {driver: json-file, options: {max-size: "5m", max-file: "2"}}
+  application:
+    image: ${CONTRUST_QA_API_IMAGE:?Pinned QA application image required}
+    pull_policy: never
+    working_dir: /fleetbase/api
+    # Single-process HTTP test server reduces staging RAM. Not a load-test runtime.
+    command: ["php", "-S", "0.0.0.0:8000", "-t", "public", "public/index.php"]
+    environment:
+      APP_NAME: Contrust Release QA
+      APP_ENV: testing
+      ENVIRONMENT: testing
+      APP_DEBUG: "false"
+      APP_KEY: ${CONTRUST_QA_APP_KEY:?Separate QA application key required}
+      APP_URL: http://127.0.0.1:18080
+      API_HOST: http://127.0.0.1:18080
+      CONSOLE_HOST: http://127.0.0.1:14200
+      DATABASE_URL: mysql://contrust_qa:${CONTRUST_QA_DB_PASSWORD}@database/contrust_release_qa
+      DB_CONNECTION: mysql
+      DB_HOST: database
+      DB_DATABASE: contrust_release_qa
+      DB_USERNAME: contrust_qa
+      DB_PASSWORD: ${CONTRUST_QA_DB_PASSWORD}
+      CACHE_DRIVER: redis
+      CACHE_URL: tcp://cache
+      REDIS_URL: tcp://cache
+      REDIS_HOST: cache
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: file
+      BROADCAST_DRIVER: log
+      MAIL_MAILER: log
+      MAIL_FROM_ADDRESS: qa@contrust.example.test
+      MAIL_FROM_NAME: Contrust Release QA
+      BREVO_API_KEY: ""
+      REGISTRY_PREINSTALLED_EXTENSIONS: "false"
+      REGISTRY_HOST: http://egress-disabled.invalid
+      OSRM_HOST: http://egress-disabled.invalid
+      SOCKETCLUSTER_HOST: egress-disabled.invalid
+      LOG_CHANNEL: daily
+      LOG_LEVEL: warning
+      REDIS_PREFIX: contrust_release_qa_
+      CONTRUST_RELEASE_QA: "synthetic-only"
+    ports: ["127.0.0.1:18080:8000"]
+    volumes:
+      - qa-storage:/fleetbase/api/storage
+      - ./fixtures:/opt/contrust-release-fixtures:ro
+    networks: [isolated]
+    depends_on:
+      database: {condition: service_healthy}
+      cache: {condition: service_healthy}
+    mem_limit: 512m
+    cpus: 0.5
+    # The inherited FrankenPHP healthcheck does not apply to this test server.
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/health') === false ? 1 : 0);"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: {driver: json-file, options: {max-size: "5m", max-file: "2"}}
+networks:
+  isolated:
+    internal: true
+volumes:
+  qa-database:
+  qa-storage:

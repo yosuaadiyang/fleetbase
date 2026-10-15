@@ -41,3 +41,7 @@ builds/osx/frankenphp
 *.dll
 *.so
 *.dylib
+
+# Generated synthetic release QA credentials (never commit)
+/qa-release.env
+/docker/release-qa/*.env
