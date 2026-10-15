@@ -5,7 +5,7 @@ image=sys.argv[1]
 environment={**os.environ,'CONTRUST_SOCKET_IMAGE':image}
 plan=json.loads(subprocess.check_output(['docker','compose','-f','docker-compose.yml','-f','docker-compose.socket-security.yml','config','--no-env-resolution','--format','json'],env=environment,text=True))
 socket=plan['services']['socket']
-assert socket['read_only'] is True and socket['mem_limit']<=192*1024**2
+assert socket['read_only'] is True and int(socket['mem_limit'])<=192*1024**2
 assert socket['security_opt']==['no-new-privileges:true'] and socket['cap_drop']==['ALL']
 mounts=socket['tmpfs']
 assert mounts==['/tmp:size=8m,noexec,nosuid'], 'tmpfs options must be one absolute mount entry'
