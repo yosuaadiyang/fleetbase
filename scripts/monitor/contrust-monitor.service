@@ -1,0 +1,22 @@
+[Unit]
+Description=Contrust external health and offsite backup-age checks
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/contrust-monitor/monitor.py
+User=root
+UMask=0077
+StateDirectory=contrust-monitor
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/contrust-monitor
+InaccessiblePaths=/root /etc/ssh /etc/ssl/private /var/lib/contrust-backup/repository/keys
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=96M
+CPUQuota=10%
+TimeoutStartSec=60

@@ -21,6 +21,10 @@ jobs:
         run: docker build -f docker/brevo/Dockerfile -t contrust-api:release-qa .
       - name: Build pinned secured socket candidate
         run: docker build -f docker/socket/Dockerfile -t contrust-socket:release-qa .
+      - name: Resolved socket mounts and actual bounded runtime startup
+        run: python3 scripts/release/check-socket-runtime.py contrust-socket:release-qa
+      - name: Offsite monitor alert deduplication without sending email
+        run: python3 -m unittest discover -s scripts/monitor -p test_monitor.py
       - name: Auth, email, tracking, and routing regressions without network
         run: bash scripts/release/run-offline-regressions.sh contrust-api:release-qa
       - name: Fetch pinned QA infrastructure images
