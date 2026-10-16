@@ -2,7 +2,7 @@
 services:
   socket:
     image: ${CONTRUST_SOCKET_IMAGE:?Pinned secured socket image required}
-    env_file: [/etc/contrust-socket/publisher.env]
+    env_file: ["${CONTRUST_SOCKET_PUBLISHER_ENV_FILE:-/etc/contrust-socket/publisher.env}"]
     environment:
       CONTRUST_SOCKET_AUTH_URL: http://application:8000/int/v1/contrust/socket-authorize
     mem_limit: 192m
