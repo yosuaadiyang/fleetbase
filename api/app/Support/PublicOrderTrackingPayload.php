@@ -5,11 +5,16 @@ namespace App\Support;
 /** Explicit public tracking contract. Never return whole internal resources. */
 final class PublicOrderTrackingPayload
 {
+    // Only the accepted v1 delivery flow may disclose a driver's live state.
+    // New/custom activities must be reviewed before widening this boundary.
+    private const LIVE_DRIVER_STATUSES = ['started', 'enroute'];
+
     public static function fromArray(array $order): array
     {
+        $showLiveDriver = in_array($order['status'] ?? null, self::LIVE_DRIVER_STATUSES, true);
         $public = self::only($order, ['id', 'uuid', 'public_id', 'tracking', 'status', 'type', 'created_at', 'updated_at', 'has_driver_assigned']);
         $public['payload'] = self::payload($order['payload'] ?? null);
-        $public['driver_assigned'] = self::driver($order['driver_assigned'] ?? null);
+        $public['driver_assigned'] = $showLiveDriver ? self::driver($order['driver_assigned'] ?? null) : null;
         $public['tracking_number'] = is_array($order['tracking_number'] ?? null)
             ? self::only($order['tracking_number'], ['id', 'uuid', 'public_id', 'tracking_number', 'barcode', 'qr_code']) : null;
         $public['tracking_statuses'] = self::collection($order['tracking_statuses'] ?? [], fn ($status) => self::only($status, ['id', 'uuid', 'public_id', 'status', 'code', 'status_code', 'details', 'created_at', 'updated_at']));
@@ -19,7 +24,7 @@ final class PublicOrderTrackingPayload
             'progress' => self::only((array) ($tracker['progress'] ?? []), ['percentage', 'completed_stops', 'total_stops']),
             'active_stop' => self::stop($tracker['active_stop'] ?? null),
             'next_stop' => self::stop($tracker['next_stop'] ?? null),
-            'driver' => is_array($tracker['driver'] ?? null) ? self::driver($tracker['driver']) : null,
+            'driver' => $showLiveDriver ? self::driver($tracker['driver'] ?? null) : null,
         ];
 
         return $public;

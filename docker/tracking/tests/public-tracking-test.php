@@ -8,7 +8,7 @@ function checkTracking($condition, $name) { if (!$condition) throw new RuntimeEx
 $private='private-fixture-canary';
 $place=['uuid'=>'place-1','name'=>'Public landmark','address'=>'Public landmark address','location'=>['type'=>'Point','coordinates'=>[106.8272,-6.1754],'secret'=>$private],'phone'=>$private,'security_access_code'=>$private,'meta'=>['secret'=>$private],'company_uuid'=>$private];
 $driver=['uuid'=>'driver-1','name'=>'Demo driver','online'=>true,'position'=>['type'=>'Point','coordinates'=>[106.83,-6.17]],'phone'=>$private,'email'=>$private,'password'=>$private,'user'=>['secret'=>$private]];
-$fixture=['uuid'=>'order-1','public_id'=>'order_fixture','tracking'=>'TRACK-FIXTURE','status'=>'created','created_at'=>'2026-10-15 01:00:00',
+$fixture=['uuid'=>'order-1','public_id'=>'order_fixture','tracking'=>'TRACK-FIXTURE','status'=>'started','created_at'=>'2026-10-15 01:00:00',
  'internal_id'=>$private,'company_uuid'=>$private,'customer_uuid'=>$private,'notes'=>$private,'comments'=>[['secret'=>$private]],'files'=>[['secret'=>$private]],'meta'=>['secret'=>$private],'transaction_amount'=>$private,'purchase_rate'=>['secret'=>$private],'future_secret'=>$private,
  'driver_assigned'=>$driver,'payload'=>['uuid'=>'payload-1','company_uuid'=>$private,'meta'=>['secret'=>$private],'pickup'=>$place,'dropoff'=>$place,'waypoints'=>[$place],'entities'=>[['uuid'=>'entity-1','name'=>'Demo package','destination_uuid'=>'place-1','price'=>$private,'cost'=>$private,'meta'=>['secret'=>$private]]]],
  'tracking_number'=>['uuid'=>'tracking-1','tracking_number'=>'TRACK-FIXTURE','company_uuid'=>$private],
@@ -20,7 +20,7 @@ function trackingRequest($action='lookup', $uri='/int/v1/fleet-ops/lookup') {
 $mw=new PublicOrderTracking;
 $response=$mw->handle(trackingRequest(),fn()=>new JsonResponse($fixture,200,['ETag'=>'private-etag','Content-Length'=>'999']));$out=$response->getData(true);
 checkTracking(!str_contains($response->getContent(),$private),'recursive private fields omitted, including future fields');
-checkTracking($out['uuid']==='order-1' && $out['tracking']==='TRACK-FIXTURE' && $out['status']==='created','tracking identity/status remain compatible');
+checkTracking($out['uuid']==='order-1' && $out['tracking']==='TRACK-FIXTURE' && $out['status']==='started','tracking identity/status remain compatible');
 checkTracking($out['payload']['pickup']['location']['coordinates']===[106.8272,-6.1754] && count($out['payload']['waypoints'])===1,'route geometry and waypoints preserved');
 checkTracking($out['driver_assigned']['position']['coordinates']===[106.83,-6.17] && $out['tracker_data']['driver']['location']['coordinates']===[106.83,-6.17],'public driver map geometry preserved');
 checkTracking($out['payload']['entities'][0]['destination_uuid']==='place-1' && $out['tracking_statuses'][0]['details']==='Order created','multi-stop item grouping and public activity preserved');
@@ -39,4 +39,14 @@ foreach ([[], ['bad']] as $badInput) {
  $bad=$mw->handle($req,function()use(&$called){$called=true;throw new RuntimeException('Invalid input reached controller');});
  checkTracking(!$called && $bad->getStatusCode()===422,'malformed tracking input stopped before controller');
 }
-echo '13 public tracking boundary checks passed; fixture-only, no database, network or email.'.PHP_EOL;
+foreach (['created', 'dispatched', 'completed', 'canceled', 'cancelled', 'failed', 'returned', 'on_hold', 'custom_unknown', null, ['started']] as $status) {
+ $inactive=$fixture;$inactive['status']=$status;$inactive['started']=true;$inactive['has_driver_assigned']=true;
+ $result=$mw->handle(trackingRequest(),fn()=>new JsonResponse($inactive))->getData(true);
+ checkTracking($result['driver_assigned']===null && $result['tracker_data']['driver']===null && $result['has_driver_assigned']===true,'non-active/unknown lifecycle hides both driver representations without changing assignment');
+}
+foreach (['started','enroute'] as $status) {
+ $active=$fixture;$active['status']=$status;
+ $result=$mw->handle(trackingRequest(),fn()=>new JsonResponse($active))->getData(true);
+ checkTracking($result['driver_assigned']['position']['coordinates']===[106.83,-6.17] && $result['tracker_data']['driver']['location']['coordinates']===[106.83,-6.17],'supported active delivery retains public driver geometry');
+}
+echo '26 public tracking boundary checks passed; fixture-only, no database, network or email.'.PHP_EOL;
