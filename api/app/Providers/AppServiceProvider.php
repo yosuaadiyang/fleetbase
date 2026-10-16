@@ -44,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        \App\Support\ProofFileAccess::configureDisk();
         $this->configureBrevoMailTransport();
         $this->configureOutboundHttpLogging();
         $this->configureTransactionTripwire();

@@ -29,6 +29,7 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->routes(
             function () {
+                Route::get('/contrust/private-files/{id}', [\App\Http\Controllers\ProofFileController::class, 'show']);
                 Route::post('/int/v1/contrust/socket-authorize', [\App\Http\Controllers\SocketAuthorizationController::class, 'authorize']);
                 Route::get('/int/v1/contrust/socket-session', [\App\Http\Controllers\SocketAuthorizationController::class, 'session']);
                 Route::get(

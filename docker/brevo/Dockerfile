@@ -47,6 +47,7 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginReque
     && rm -rf /tmp/contrust-auth-tests
 
 RUN echo '77ee2b924bbc059808d2b6849c4bbfc47f601aeec5b4cf4814904422a2005ef5  /fleetbase/api/app/Providers/AppServiceProvider.php' | sha256sum --check
+COPY api/app/Support/ProofFileAccess.php /fleetbase/api/app/Support/ProofFileAccess.php
 COPY api/app/Providers/AppServiceProvider.php /fleetbase/api/app/Providers/AppServiceProvider.php
 COPY docker/brevo/vendor/BrevoApiTransport.php /fleetbase/api/app/Mail/BrevoApiTransport.php
 COPY docker/brevo/vendor/LICENSE /fleetbase/api/app/Mail/BREVO-BRIDGE-LICENSE
@@ -76,3 +77,12 @@ RUN php -l /fleetbase/api/app/Support/SocketAccessTickets.php \
     && php -l /fleetbase/api/app/Support/SocketChannelAccess.php \
     && php -l /fleetbase/api/app/Http/Controllers/SocketAuthorizationController.php \
     && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Support/SocketCluster/SocketClusterService.php
+
+COPY api/app/Http/Controllers/ProofFileController.php /fleetbase/api/app/Http/Controllers/ProofFileController.php
+COPY docker/files/patch-proof-files.php /tmp/contrust-patch-proof-files.php
+RUN php /tmp/contrust-patch-proof-files.php \
+    && php -l /fleetbase/api/app/Support/ProofFileAccess.php \
+    && php -l /fleetbase/api/app/Http/Controllers/ProofFileController.php \
+    && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Models/File.php \
+    && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/OrderController.php \
+    && rm /tmp/contrust-patch-proof-files.php
