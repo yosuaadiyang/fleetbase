@@ -13,12 +13,29 @@ concurrency:
 jobs:
   backend:
     name: Contrust API regression and isolated HTTP contract
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Record runner capacity and add temporary build swap
+        shell: bash
+        run: |
+          set -euo pipefail
+          free -m
+          df -h /
+          # Standard public runner only; no paid runner, artifact or remote storage.
+          sudo fallocate -l 8G /mnt/contrust-build.swap
+          sudo chmod 600 /mnt/contrust-build.swap
+          sudo mkswap /mnt/contrust-build.swap
+          sudo swapon /mnt/contrust-build.swap
+          free -m
       - name: Build the patched release candidate (no optional secrets)
         run: docker build -f docker/brevo/Dockerfile -t contrust-api:release-qa .
+      - name: Release unused build cache before integration infrastructure
+        run: |
+          docker builder prune --all --force
+          free -m
+          df -h /
       - name: Build pinned secured socket candidate
         run: docker build -f docker/socket/Dockerfile -t contrust-socket:release-qa .
       - name: Resolved socket mounts and actual bounded runtime startup
