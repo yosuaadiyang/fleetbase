@@ -35,6 +35,7 @@ services:
       context: .
       dockerfile: docker/brevo/Dockerfile
     environment:
+      CONTRUST_MOBILE_PUSH_ENABLED: ${CONTRUST_MOBILE_PUSH_ENABLED:-false}
       OSRM_HOST: http://routing:5000
       OSRM_TIMEOUT: "5"
       OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
@@ -42,6 +43,7 @@ services:
     image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:release-20261015-driver}
     stop_grace_period: 120s
     environment:
+      CONTRUST_MOBILE_PUSH_ENABLED: ${CONTRUST_MOBILE_PUSH_ENABLED:-false}
       OSRM_HOST: http://routing:5000
       OSRM_TIMEOUT: "5"
       OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}
@@ -49,6 +51,7 @@ services:
     image: ${CONTRUST_ROUTING_API_IMAGE:-contrust-api:release-20261015-driver}
     stop_grace_period: 120s
     environment:
+      CONTRUST_MOBILE_PUSH_ENABLED: ${CONTRUST_MOBILE_PUSH_ENABLED:-false}
       OSRM_HOST: http://routing:5000
       OSRM_TIMEOUT: "5"
       OSRM_DATA_VERSION: ${OSRM_DATA_VERSION:-261012-mld-55dbfd47}

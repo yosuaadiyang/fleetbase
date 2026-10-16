@@ -45,6 +45,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         \App\Support\ProofFileAccess::configureDisk();
+        config(['contrust.mobile_push_enabled' => filter_var(env('CONTRUST_MOBILE_PUSH_ENABLED', false), FILTER_VALIDATE_BOOLEAN)]);
+        Event::listen(\Illuminate\Notifications\Events\NotificationSending::class, [\App\Support\NotificationChannelPolicy::class, 'handle']);
         $this->configureBrevoMailTransport();
         $this->configureOutboundHttpLogging();
         $this->configureTransactionTripwire();

@@ -48,6 +48,7 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginReque
 
 RUN echo '77ee2b924bbc059808d2b6849c4bbfc47f601aeec5b4cf4814904422a2005ef5  /fleetbase/api/app/Providers/AppServiceProvider.php' | sha256sum --check
 COPY api/app/Support/ProofFileAccess.php /fleetbase/api/app/Support/ProofFileAccess.php
+COPY api/app/Support/NotificationChannelPolicy.php /fleetbase/api/app/Support/NotificationChannelPolicy.php
 COPY api/app/Providers/AppServiceProvider.php /fleetbase/api/app/Providers/AppServiceProvider.php
 COPY docker/brevo/vendor/BrevoApiTransport.php /fleetbase/api/app/Mail/BrevoApiTransport.php
 COPY docker/brevo/vendor/LICENSE /fleetbase/api/app/Mail/BREVO-BRIDGE-LICENSE
@@ -86,3 +87,6 @@ RUN php /tmp/contrust-patch-proof-files.php \
     && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Models/File.php \
     && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/OrderController.php \
     && rm /tmp/contrust-patch-proof-files.php
+
+COPY docker/notifications/tests/ /tmp/contrust-notification-tests/
+RUN php /tmp/contrust-notification-tests/channel-policy-test.php && rm -rf /tmp/contrust-notification-tests

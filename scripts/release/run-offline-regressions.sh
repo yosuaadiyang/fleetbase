@@ -23,3 +23,4 @@ docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32
 run_test routing real-vendor-test.php
 
 run_test socket publisher-test.php
+run_test notifications channel-policy-test.php
