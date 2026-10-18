@@ -46,6 +46,9 @@ final class ManagedDriverApiAccess
         // a staff-linked driver token back into a normal staff session.
         $driverToken = is_string($tokenName) && Str::isUuid($tokenName) && $tokenName !== $user->uuid;
         if (!$driver && !$user->isType('driver') && !$driverToken) {
+            if ($class === 'Fleetbase\\Http\\Controllers\\Api\\v1\\ChatChannelController') {
+                return OrganizationChat::handle($request, $user, $action);
+            }
             return null;
         }
         if (!$driver || $user->status !== 'active') {
@@ -53,6 +56,10 @@ final class ManagedDriverApiAccess
         }
         $request->attributes->set('contrust.driver_uuid', $driver->uuid);
         session()->put('driver', $driver->uuid);
+
+        if ($class === 'Fleetbase\\Http\\Controllers\\Api\\v1\\ChatChannelController') {
+            return OrganizationChat::handle($request, $user, $action);
+        }
 
         if ($class === $fleetOpsApi . 'DriverController') {
             $id = $route->parameter('id');

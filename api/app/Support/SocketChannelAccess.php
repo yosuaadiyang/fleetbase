@@ -13,11 +13,12 @@ final class SocketChannelAccess
     public static function allows(array $actor, string $channel): bool
     {
         if ($channel === '@session') return true;
-        if (!preg_match('/^(driver|vehicle|order|company|user)\.([a-zA-Z0-9_-]{1,100})(\.orders)?$/D', $channel, $parts)) return false;
+        if (!preg_match('/^(driver|vehicle|order|company|user|chat)\.([a-zA-Z0-9_-]{1,100})(\.orders)?$/D', $channel, $parts)) return false;
         [, $type, $id] = $parts;
         $suffix = $parts[3] ?? '';
         $user = $actor['user']; $company = $actor['company']; $driver = $actor['driver'];
         if ($suffix !== '' && $type !== 'company') return false;
+        if ($type === 'chat') return OrganizationChat::channel($user, $id) !== null;
         if ($type === 'user') return in_array($id, [$user->uuid, $user->public_id], true);
         if ($type === 'company') {
             if ($driver || !in_array($id, [$company->uuid, $company->public_id], true)) return false;

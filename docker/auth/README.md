@@ -139,6 +139,26 @@ author may edit/delete, and parents with replies cannot be deleted. Content is
 plain text, 2–4000 characters, with bounded reply nesting and a per-user rate
 limit. Driver output omits author email/phone and tenant/internal identifiers.
 
-Chat remains denied by the managed-driver API until recipient scope and ownership
-contracts are implemented. A client must handle that denial and cannot show a
-successful channel/message when the API has not confirmed a saved record.
+### Organization chat
+
+The approved recipient scope is active members of the current organization,
+including staff and drivers. `OrganizationChat` handles the consumable chat API
+for both staff and driver sessions. The Navigator bootstrap key remains denied.
+An explicit inactive or deleted company membership vetoes the driver fallback;
+room participation never grants access after organization membership is revoked.
+
+The server derives tenant, creator, message sender and read-receipt participant.
+All selected recipients must resolve within that active organization before a
+room is created. Only participants may read/send, the creator controls invitations,
+rename and deletion, members may leave, and only a message's sender may delete it.
+Directory and participant responses omit email, phone and internal tenant IDs.
+Rooms are private to their participants even within the same organization.
+Chat socket subscriptions and every outbound event require current membership.
+
+This first contract supports plain text, not file attachments or background push
+notifications. Existing model lifecycle broadcasts provide in-app events. Limits:
+500 directory entries, 100 rooms, 100 recent messages per room, 20 invitees per
+room, names 2–120 and messages 1–4000 characters. Pagination/history search is a
+separate release requirement for larger deployments. Creation and sending have
+per-user rate limits. Clients must retain drafts on error and show success only
+after the API confirms a saved record; uncertain requests must not auto-retry.

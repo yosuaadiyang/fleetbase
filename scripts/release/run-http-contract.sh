@@ -59,3 +59,4 @@ python3 scripts/release/check-qa-results.py socket-transport "$report_file"
 run_fixture proof-file-contract.php proof-files
 
 run_fixture driver-comment-contract.php driver-comments
+run_fixture organization-chat-contract.php organization-chat
