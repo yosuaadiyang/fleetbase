@@ -125,3 +125,20 @@ recipient numbers and raw delivery-exception messages from their delivery logs.
 A real service instance with an unsupported provider exercises the error path
 without network access and verifies that log records contain no recipient/code.
 This does not certify logging behavior inside every optional upstream provider.
+
+
+### Assigned-order comments
+
+Managed driver comment reads use the assigned order, with an explicit company
+predicate and no shared query cache. Create/reply/edit/delete requests on the
+consumable comments API are handled by `App\Support\DriverOrderComments` before
+the generic controller. The server resolves company, author, subject and parent;
+clients cannot supply arbitrary author/tenant metadata or non-order subjects.
+Reassignment revokes access immediately, including on completed orders. Only the
+author may edit/delete, and parents with replies cannot be deleted. Content is
+plain text, 2–4000 characters, with bounded reply nesting and a per-user rate
+limit. Driver output omits author email/phone and tenant/internal identifiers.
+
+Chat remains denied by the managed-driver API until recipient scope and ownership
+contracts are implemented. A client must handle that denial and cannot show a
+successful channel/message when the API has not confirmed a saved record.

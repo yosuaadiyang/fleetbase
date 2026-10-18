@@ -18,6 +18,7 @@ RUN php /tmp/contrust-patch-driver-auth.php \
     && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/DriverController.php \
     && rm /tmp/contrust-patch-driver-auth.php
 COPY api/app/Support/ManagedDriverApiAccess.php /fleetbase/api/app/Support/ManagedDriverApiAccess.php
+COPY api/app/Support/DriverOrderComments.php /fleetbase/api/app/Support/DriverOrderComments.php
 COPY api/app/Support/ProofImageInput.php /fleetbase/api/app/Support/ProofImageInput.php
 COPY docker/auth/patch-driver-order.php /tmp/contrust-patch-driver-order.php
 RUN php /tmp/contrust-patch-driver-order.php \

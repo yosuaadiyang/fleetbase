@@ -57,3 +57,5 @@ docker run --rm --network contrust-release-qa_isolated --memory 192m --cpus 0.5 
  --entrypoint node "$socket_image" /usr/src/transport.js > "$report_file"
 python3 scripts/release/check-qa-results.py socket-transport "$report_file"
 run_fixture proof-file-contract.php proof-files
+
+run_fixture driver-comment-contract.php driver-comments

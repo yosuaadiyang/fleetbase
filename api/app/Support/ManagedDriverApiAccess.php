@@ -90,6 +90,10 @@ final class ManagedDriverApiAccess
             return null;
         }
 
+        if ($class === 'Fleetbase\\Http\\Controllers\\Api\\v1\\CommentController') {
+            return DriverOrderComments::handle($request, $driver, $user, $action, $route->parameter('id'));
+        }
+
         if ($class === $fleetOpsApi . 'OrderController') {
             // The query callback adds a mandatory SQL predicate from this attribute.
             if ($action === 'query') {
@@ -108,6 +112,9 @@ final class ManagedDriverApiAccess
             }
             if ($request->hasAny(['skip_dispatch', 'skipDispatch', 'assign', 'disk', 'bucket'])) {
                 return self::denied();
+            }
+            if ($action === 'orderComments') {
+                return DriverOrderComments::listing($request, $driver, $user, $order);
             }
             if (in_array($action, ['updateActivity', 'completeOrder'], true)) {
                 return self::validateActivity($request, $order, $action);
