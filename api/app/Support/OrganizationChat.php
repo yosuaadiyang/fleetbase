@@ -107,8 +107,8 @@ final class OrganizationChat
             $userId = $request->input('user');
             $person = is_string($userId) ? self::members($company)->where('public_id', $userId)->first() : null;
             if (!$person) return self::denied();
-            if ($channel->participants()->count() >= 21) return self::invalid();
-            return self::response(self::participantRecord(self::add($channel, $person)), 201);
+            $participant = self::add($channel, $person);
+            return $participant ? self::response(self::participantRecord($participant), 201) : self::invalid();
         }
         if ($action === 'removeParticipant') {
             if ($targetParticipant->user_uuid !== $user->uuid && $channel->created_by_uuid !== $user->uuid) return self::denied();
@@ -152,14 +152,18 @@ final class OrganizationChat
         return self::denied();
     }
 
-    private static function add(ChatChannel $channel, User $user): ChatParticipant
+    private static function add(ChatChannel $channel, User $user): ?ChatParticipant
     {
-        $participant = $channel->participants()->where('company_uuid', $channel->company_uuid)->where('user_uuid', $user->uuid)->first();
-        if (!$participant) {
+        return DB::transaction(function () use ($channel, $user) {
+            // Parallel invitations must not create duplicates or exceed the cap.
+            ChatChannel::where('uuid', $channel->uuid)->lockForUpdate()->first();
+            $participant = $channel->participants()->where('company_uuid', $channel->company_uuid)->where('user_uuid', $user->uuid)->first();
+            if ($participant) return $participant;
+            if ($channel->participants()->count() >= 21) return null;
             $participant = new ChatParticipant();
             $participant->forceFill(['company_uuid' => $channel->company_uuid, 'chat_channel_uuid' => $channel->uuid, 'user_uuid' => $user->uuid])->save();
-        }
-        return $participant;
+            return $participant;
+        });
     }
 
     private static function resource(string $model, string $company, string $id)

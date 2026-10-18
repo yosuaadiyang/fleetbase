@@ -93,6 +93,7 @@ try {
     [$code] = chatCall('POST', 'chat-channels/' . $id . '/add-participant', ['user' => $state['users']['driver_a_other']['public_id']], 'viewer_a'); chatCheck('ordinary member cannot invite users', $code === 403, $code);
     [$code] = chatCall('POST', 'chat-channels/' . $id . '/add-participant', ['user' => $state['users']['driver_b']['public_id']], 'driver_a'); chatCheck('creator cannot add foreign organization user', $code === 403, $code);
     [$code, $added] = chatCall('POST', 'chat-channels/' . $id . '/add-participant', ['user' => $state['users']['driver_a_other']['public_id']], 'driver_a'); chatCheck('creator may add own-organization active member', $code === 201 && is_string($added['id'] ?? null), $code);
+    [$code, $same] = chatCall('POST', 'chat-channels/' . $id . '/add-participant', ['user' => $state['users']['driver_a_other']['public_id']], 'driver_a'); chatCheck('repeated invitation retains one participant', $code === 201 && ($same['id'] ?? null) === $added['id'] && $room->participants()->count() === 3, $code);
     chatCheck('member chat public-ID socket allowed', SocketChannelAccess::allows($actors['driver_a'], 'chat.' . $id));
     chatCheck('member chat UUID socket allowed', SocketChannelAccess::allows($actors['viewer_a'], 'chat.' . $room->uuid));
     chatCheck('foreign chat socket rejected', !SocketChannelAccess::allows($actors['driver_b'], 'chat.' . $id));
@@ -121,7 +122,7 @@ try {
     foreach ($channels as $uuid) {
         $messageUuids = DB::table('chat_messages')->where('chat_channel_uuid', $uuid)->pluck('uuid');
         DB::table('chat_receipts')->whereIn('chat_message_uuid', $messageUuids)->delete();
-        foreach (['chat_messages', 'chat_participants', 'chat_attachments', 'chat_logs'] as $table) DB::table($table)->where('chat_channel_uuid', $uuid)->delete();
+        foreach (['chat_attachments', 'chat_logs', 'chat_messages', 'chat_participants'] as $table) DB::table($table)->where('chat_channel_uuid', $uuid)->delete();
         DB::table('chat_channels')->where('uuid', $uuid)->delete();
     }
     if ($tokenIds) DB::table('personal_access_tokens')->whereIn('id', $tokenIds)->delete();
