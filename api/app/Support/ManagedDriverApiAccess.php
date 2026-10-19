@@ -57,6 +57,10 @@ final class ManagedDriverApiAccess
         $request->attributes->set('contrust.driver_uuid', $driver->uuid);
         session()->put('driver', $driver->uuid);
 
+        if (in_array($class, [$fleetOpsApi . 'IssueController', $fleetOpsApi . 'FuelReportController'], true)) {
+            return DriverReports::handle($request, $driver, $user, $action, $class === $fleetOpsApi . 'FuelReportController');
+        }
+
         if ($class === 'Fleetbase\\Http\\Controllers\\Api\\v1\\ChatChannelController') {
             return OrganizationChat::handle($request, $user, $action);
         }
