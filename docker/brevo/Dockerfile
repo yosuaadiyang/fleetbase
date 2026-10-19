@@ -93,3 +93,12 @@ RUN php /tmp/contrust-patch-proof-files.php \
 
 COPY docker/notifications/tests/ /tmp/contrust-notification-tests/
 RUN php /tmp/contrust-notification-tests/channel-policy-test.php && rm -rf /tmp/contrust-notification-tests
+
+# Administrative diagnostics are token-authenticated even behind an internal proxy.
+COPY api/app/Http/Middleware/AuthenticatedOpcacheRequest.php /fleetbase/api/app/Http/Middleware/AuthenticatedOpcacheRequest.php
+COPY api/config/opcache.php /fleetbase/api/config/opcache.php
+RUN php -l /fleetbase/api/app/Http/Middleware/AuthenticatedOpcacheRequest.php
+
+# Online includes available drivers as well as drivers currently assigned to jobs.
+RUN echo '4c1d36cd1a61eb0db21699f66f0c93462065221cf41f6647fa6e709c594a2f24  /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/Metrics/DriversOnlineMetric.php' | sha256sum --check
+COPY docker/metrics/DriversOnlineMetric.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/Metrics/DriversOnlineMetric.php

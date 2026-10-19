@@ -82,12 +82,12 @@ jobs:
       - name: Frozen dependencies and maintained vendor patches
         working-directory: console
         run: pnpm install --frozen-lockfile
-      - name: Required targeted regressions
+      - name: Required full frontend regression suite
         working-directory: console
         shell: bash
         run: |
           set -euo pipefail
-          pnpm exec ember test --filter='/public audit|point serialization|load-runtime-config|load-intl-polyfills|intl locale loading|initialize-random-uuid-polyfill|fleetbase-attribution|socket-session/' | tee /tmp/contrust-frontend-tests.log
+          API_HOST=http://127.0.0.1:18080 API_SECURE=false pnpm exec ember test | tee /tmp/contrust-frontend-tests.log
           python3 ../scripts/release/check-frontend-results.py /tmp/contrust-frontend-tests.log
       - name: Production build
         working-directory: console

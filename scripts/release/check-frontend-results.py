@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Fail closed if a filtered suite silently executes zero/missing regressions."""
+"""Require the complete frontend suite with no failed or skipped tests."""
 import pathlib,re,sys
 s=pathlib.Path(sys.argv[1]).read_text()
 def count(name):
  m=re.findall(r'^# '+name+r'\s+(\d+)\s*$',s,re.M)
  if not m:raise SystemExit('Missing TAP summary: '+name)
  return int(m[-1])
-assert count('tests')>=13,'Insufficient regression coverage'
+assert count('tests')>=1386,'Insufficient regression coverage'
 assert count('tests')==count('pass'),'Not all regressions passed'
 assert all(count(x)==0 for x in ['fail','skip','todo']),'Skipped or failed regression'
 for name in ['public audit','point serialization','load-runtime-config','intl locale loading','fleetbase-attribution','socket-session']:

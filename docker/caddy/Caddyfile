@@ -39,6 +39,10 @@
 }
 
 {$API_DOMAIN} {
+	# Contrust: administrative diagnostics are never public.
+	@contrust_private_diagnostics path /opcache-api /opcache-api/*
+	respond @contrust_private_diagnostics 404
+
 	encode zstd gzip
 	import contrust_response_headers
 

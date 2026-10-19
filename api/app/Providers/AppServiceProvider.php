@@ -34,7 +34,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // Never authorize administrative operations from caller-controlled IP headers.
+        $this->app->bind(\Appstract\Opcache\Http\Middleware\Request::class, \App\Http\Middleware\AuthenticatedOpcacheRequest::class);
     }
 
     /**

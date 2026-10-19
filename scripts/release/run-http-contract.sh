@@ -62,3 +62,7 @@ run_fixture driver-comment-contract.php driver-comments
 run_fixture organization-chat-contract.php organization-chat
 
 run_fixture driver-report-contract.php driver-reports
+
+run_fixture diagnostic-access-contract.php diagnostic-access
+
+run_fixture dashboard-metrics-contract.php dashboard-metrics

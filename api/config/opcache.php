@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'url' => env('OPCACHE_URL', config('app.url')),
+    'url' => env('OPCACHE_URL', 'http://127.0.0.1:8000'),
     'prefix' => 'opcache-api',
     'verify' => true,
     'headers' => [],
