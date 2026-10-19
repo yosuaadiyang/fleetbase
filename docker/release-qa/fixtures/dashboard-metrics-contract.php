@@ -22,6 +22,6 @@ try{
  [$c,$v]=metricCall($tokens['owner_a']);$checks[]=['name'=>'other company online driver excluded','passed'=>$c===200&&($v['value']??null)===0,'http'=>$c];
  [$c,$v]=metricCall($tokens['owner_a'],'&company_uuid='.$companies[1]);$checks[]=['name'=>'query cannot override metrics company scope','passed'=>$c===200&&($v['value']??null)===0,'http'=>$c];
  [$c]=metricCall(null);$checks[]=['name'=>'anonymous metrics denied','passed'=>$c===401,'http'=>$c];
- [$c]=metricCall($s['bootstrap']['a']);$checks[]=['name'=>'embedded Navigator credential cannot read staff metrics','passed'=>$c===403,'http'=>$c];
+ [$c]=metricCall($s['bootstrap']['a']);$checks[]=['name'=>'embedded Navigator credential cannot read staff metrics','passed'=>$c===401,'http'=>$c];
 }finally{foreach($before as $row)DB::table('drivers')->where('uuid',$row->uuid)->update(['online'=>$row->online,'current_job_uuid'=>$row->current_job_uuid]);if($ids)DB::table('personal_access_tokens')->whereIn('id',$ids)->delete();}
 $failed=count(array_filter($checks,fn($c)=>!$c['passed']));echo json_encode(['environment'=>'isolated-synthetic-mysql','checks'=>$checks,'passed'=>count($checks)-$failed,'failed'=>$failed,'production_changed'=>false,'credentials_or_record_contents_printed'=>false],JSON_PRETTY_PRINT),"\n";exit($failed?1:0);

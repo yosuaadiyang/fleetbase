@@ -165,6 +165,9 @@ module('Unit | Controller | auth/verification | resend and verify', function (ho
 
         this.build = () => {
             const controller = this.owner.lookup('controller:auth/verification');
+            // Boot has resolved intl before these test registrations. Inject directly
+            // so the welcome message is verified against this unit's chosen brand.
+            controller.intl = { t: (key) => (key === 'app.name' ? 'Test Workspace' : key) };
             this.transitions = [];
             Object.defineProperty(controller.router, 'transitionTo', {
                 configurable: true,
@@ -200,7 +203,7 @@ module('Unit | Controller | auth/verification | resend and verify', function (ho
         assert.deepEqual(this.owner.lookup('service:session').authenticated, ['auth-token']);
         assert.deepEqual(this.transitions, ['console']);
         assert.deepEqual(this.notifications().successes, ['Email successfully verified!']);
-        assert.deepEqual(this.notifications().infos, ['Welcome to Fleetbase']);
+        assert.deepEqual(this.notifications().infos, ['Welcome to Test Workspace']);
     });
 
     test('verifyCode sends the user to login when no token comes back', async function (assert) {
