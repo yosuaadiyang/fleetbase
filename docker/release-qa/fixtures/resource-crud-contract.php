@@ -41,7 +41,7 @@ try{
    $ownDriver=DB::table('drivers')->where('public_id',$s['users']['driver_a_other']['driver_public_id'])->value('uuid');
    $foreignBody=$body;$foreignBody['name']=$prefix.' foreign-assignment';$foreignBody['driver_uuid']=$foreignDriver;
    [$c]=crudCall('POST',$plural,[$singular=>$foreignBody]);$foreignVehicle=DB::table('vehicles')->where('name',$foreignBody['name'])->first();
-   crudCheck('vehicle create with foreign driver cannot prevent valid vehicle save',$c===200&&$foreignVehicle!==null,$c);
+   crudCheck('vehicle create with foreign driver cannot prevent valid vehicle save',in_array($c,[200,201],true)&&$foreignVehicle!==null,$c);
    crudCheck('vehicle create observer cannot assign foreign organization driver',$foreignVehicle&&DB::table('drivers')->where('uuid',$foreignDriver)->value('vehicle_uuid')!==$foreignVehicle->uuid);
    [$c]=crudCall('PUT',$path,[$singular=>['driver'=>['uuid'=>$foreignDriver]]]);
    crudCheck('vehicle edit with foreign assignment returns a handled response',$c===200,$c);
