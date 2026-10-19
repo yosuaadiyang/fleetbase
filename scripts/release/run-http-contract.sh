@@ -66,3 +66,5 @@ run_fixture driver-report-contract.php driver-reports
 run_fixture diagnostic-access-contract.php diagnostic-access
 
 run_fixture dashboard-metrics-contract.php dashboard-metrics
+
+run_fixture resource-crud-contract.php resource-crud

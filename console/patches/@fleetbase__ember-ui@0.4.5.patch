@@ -1,0 +1,91 @@
+diff --git a/addon/components/button.hbs b/addon/components/button.hbs
+index c36cca6d08e06bd5983ae200cce0360ce91c3cea..0513ac409abb42d5f67046bc930e594547574754 100644
+--- a/addon/components/button.hbs
++++ b/addon/components/button.hbs
+@@ -7,6 +7,7 @@
+         <button
+             class="btn {{if @isLoading 'btn-is-loading'}} {{if @outline 'btn-outline'}} btn-{{or @type 'default'}} btn-{{or @size 'sm'}}"
+             disabled={{this.isDisabled}}
++            aria-label={{or @ariaLabel @text @helpText}}
+             ...attributes
+             type={{or @buttonType "button"}}
+             {{on "click" this.onClick}}
+diff --git a/addon/components/dropdown-button.hbs b/addon/components/dropdown-button.hbs
+index 154dd9c947b2b6553c65ba042c77a707d09d4a53..3067c77b6b261eba87fb3ae9b82b13f870f12134 100644
+--- a/addon/components/dropdown-button.hbs
++++ b/addon/components/dropdown-button.hbs
+@@ -39,6 +39,7 @@
+                 }}
+             {{else}}
+                 <Button
++                    aria-label={{or @ariaLabel @text @helpText "More actions"}}
+                     title={{@text}}
+                     class="{{@buttonClass}} {{if dd.isOpen 'dd-is-open'}}"
+                     @wrapperClass={{@buttonWrapperClass}}
+diff --git a/addon/components/filters-picker/button.hbs b/addon/components/filters-picker/button.hbs
+index d6a5724059605dbbbc28c5232585458cae360629..213b9bc951d644976788e7a7c42ef9250887540a 100644
+--- a/addon/components/filters-picker/button.hbs
++++ b/addon/components/filters-picker/button.hbs
+@@ -1,4 +1,5 @@
+ <Button
++    aria-label={{or @text (t "common.filter")}}
+     @type={{@type}}
+     @text={{if this.buttonComponentArgs.iconOnly "" (or @text (t "common.filter"))}}
+     @icon={{or @icon "filter"}}
+diff --git a/addon/components/layout/header/sidebar-toggle.hbs b/addon/components/layout/header/sidebar-toggle.hbs
+index 002b6cbf28fc5eee48c9e6710c4e541a7746e73d..b09bcf49e7e490ee68f7b588fe177cd1bd652dc5 100644
+--- a/addon/components/layout/header/sidebar-toggle.hbs
++++ b/addon/components/layout/header/sidebar-toggle.hbs
+@@ -1,6 +1,6 @@
+ <div class="sidebar-toggle-button-wrapper flex-shrink-0 {{if this.isDisabled 'disabled opacity-50'}} {{if this.sidebar.isVisible 'sidebar-is-visible'}}" ...attributes>
+-    <button type="button" disabled={{this.isDisabled}} {{on "click" this.toggleSidebar}} class="sidebar-toggle-button next-org-button-trigger">
+-        <svg id="sidebar-toggle-icon" data-name="sidebar-toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 392 340">
++    <button aria-label="Toggle navigation sidebar" aria-expanded={{if this.sidebar.isVisible "true" "false"}} type="button" disabled={{this.isDisabled}} {{on "click" this.toggleSidebar}} class="sidebar-toggle-button next-org-button-trigger">
++        <svg aria-hidden="true" focusable="false" id="sidebar-toggle-icon" data-name="sidebar-toggle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 392 340">
+             <rect x="0" y="0" width="150" height="340" fill={{if this.sidebar.isVisible "white" "transparent"}} rx="40" ry="40"></rect>
+             <path
+                 class="cls-1"
+diff --git a/addon/components/pagination.hbs b/addon/components/pagination.hbs
+index 6006fc29f1927ff23d25f56b50f7114600550144..2f4fd7a316c36747acdf81ef53587b88f0a06bf4 100644
+--- a/addon/components/pagination.hbs
++++ b/addon/components/pagination.hbs
+@@ -52,12 +52,13 @@
+             <span class="fleetbase-pagination-meta-info-paging-inner relative z-0 inline-flex shadow-sm {{@innerPaginationClass}}">
+                 <button
+                     id="fleetbase-pagination-backward-button"
++                    aria-label="Previous page"
+                     type="button"
+                     class="page-item-arrow {{@backwardClass}} {{if this.cannotStepBackward 'disabled'}}"
+                     disabled={{this.cannotStepBackward}}
+                     {{on "click" (fn this.incrementPage -1)}}
+                 >
+-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
++                    <svg aria-hidden="true" focusable="false" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                         <path
+                             fill-rule="evenodd"
+                             d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+@@ -85,12 +86,13 @@
+ 
+                 <button
+                     id="fleetbase-pagination-forward-button"
++                    aria-label="Next page"
+                     type="button"
+                     class="page-item-arrow {{@forwardClass}} {{if this.cannotStepForward 'disabled'}}"
+                     disabled={{this.cannotStepForward}}
+                     {{on "click" (fn this.incrementPage 1)}}
+                 >
+-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
++                    <svg aria-hidden="true" focusable="false" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                         <path
+                             fill-rule="evenodd"
+                             d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+diff --git a/addon/components/visible-column-picker.hbs b/addon/components/visible-column-picker.hbs
+index 1c72e95bdd8e45299636272fd101cfe70578c36b..e1cb02f2ffa0660c858c60b54cebbb88ad71b6dc 100644
+--- a/addon/components/visible-column-picker.hbs
++++ b/addon/components/visible-column-picker.hbs
+@@ -1,4 +1,5 @@
+ <DropdownButton
++    aria-label={{or @text (t "common.columns")}}
+     @text={{if @iconOnly "" (or @text (t "common.columns"))}}
+     @icon={{or @icon "sliders-h"}}
+     @type={{@type}}

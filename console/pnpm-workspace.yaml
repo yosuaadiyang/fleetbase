@@ -26,5 +26,6 @@ minimumReleaseAgeExclude:
 patchedDependencies:
   '@fleetbase/customer-portal-engine@0.0.15': patches/@fleetbase__customer-portal-engine@0.0.15.patch
   '@fleetbase/ember-core@0.3.25': patches/@fleetbase__ember-core@0.3.25.patch
+  '@fleetbase/ember-ui@0.4.5': patches/@fleetbase__ember-ui@0.4.5.patch
   '@fleetbase/fleetops-data@0.2.2': patches/@fleetbase__fleetops-data@0.2.2.patch
   '@fleetbase/fleetops-engine@0.6.71': patches/@fleetbase__fleetops-engine@0.6.71.patch

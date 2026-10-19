@@ -102,3 +102,12 @@ RUN php -l /fleetbase/api/app/Http/Middleware/AuthenticatedOpcacheRequest.php
 # Online includes available drivers as well as drivers currently assigned to jobs.
 RUN echo '4c1d36cd1a61eb0db21699f66f0c93462065221cf41f6647fa6e709c594a2f24  /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/Metrics/DriversOnlineMetric.php' | sha256sum --check
 COPY docker/metrics/DriversOnlineMetric.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/Metrics/DriversOnlineMetric.php
+
+# Generic CRUD tenant isolation and scalar-name validation, pinned to shipped core.
+RUN echo '06aef6a05fa0fda961c1cf839471fd5f3fa4dbe6e0f7f40bd5575a773a744535  /fleetbase/api/vendor/fleetbase/core-api/src/Traits/HasApiControllerBehavior.php' | sha256sum --check
+COPY docker/crud/HasApiControllerBehavior.php /fleetbase/api/vendor/fleetbase/core-api/src/Traits/HasApiControllerBehavior.php
+RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Traits/HasApiControllerBehavior.php
+
+RUN echo '2eefd7572d28a5bcb0e6c1cd5b03f8579388f99326eecbc15a60c7ae184f8ed2  /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Observers/VehicleObserver.php' | sha256sum --check
+COPY docker/crud/VehicleObserver.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Observers/VehicleObserver.php
+RUN php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Observers/VehicleObserver.php
