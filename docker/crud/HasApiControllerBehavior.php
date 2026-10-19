@@ -307,6 +307,16 @@ trait HasApiControllerBehavior
      */
     public function validateRequest(Request $request): void
     {
+        // Validate wrappers before the model passes them to array-only helpers.
+        // Flat public payloads remain supported when neither wrapper is present.
+        $raw = $request->all();
+        $singular = $this->model?->getSingularName();
+        foreach (array_unique(array_filter([$singular, $singular ? Str::camel($singular) : null])) as $key) {
+            if (array_key_exists($key, $raw) && (!is_array($raw[$key]) || array_is_list($raw[$key]))) {
+                throw new FleetbaseRequestValidationException([$key => ['The resource payload must be an object.']]);
+            }
+        }
+
         $input = (array) ($this->model?->getApiPayloadFromRequest($request) ?? []);
 
         // Generic models without a dedicated FormRequest still feed names into

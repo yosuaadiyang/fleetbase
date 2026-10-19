@@ -52,6 +52,12 @@ try{
   [$c]=crudCall('PUT',$path,[$singular=>['company_uuid'=>$s['companies']['b']['uuid']]]);$fresh=DB::table((new $model)->getTable())->where('uuid',$id)->whereNull('deleted_at')->first();crudCheck($singular.' ownership cannot be reassigned via update',$fresh&&$fresh->company_uuid===$s['companies']['a']['uuid'],$c);
   [$c]=crudCall('POST',$plural,[$singular=>['name'=>$prefix.' spoof '.$singular,'company_uuid'=>$s['companies']['b']['uuid']]]);$spoof=$model::withoutCache()->where('name',$prefix.' spoof '.$singular)->first();crudCheck($singular.' create cannot inject foreign ownership',!$spoof||$spoof->company_uuid===$s['companies']['a']['uuid'],$c);
   foreach([[],['nested'=>'bad'],null,str_repeat('x',256),1,true] as $case=>$bad){[$c]=crudCall('POST',$plural,[$singular=>['name'=>$bad]]);crudCheck($singular.' malformed name returns client error '.$case,in_array($c,[400,422],true),$c);}
+  $beforeCount=DB::table((new $model)->getTable())->count();
+  foreach([true,1,'canary',false,null,'',[1,2]] as $case=>$badEnvelope){
+   foreach(['POST','PUT'] as $method){[$c]=crudCall($method,$method==='POST'?$plural:$path,[$singular=>$badEnvelope]);crudCheck($singular.' malformed envelope client error '.$method.' '.$case,in_array($c,[400,422],true),$c);}
+  }
+  crudCheck($singular.' malformed envelopes create no records',DB::table((new $model)->getTable())->count()===$beforeCount);
+  $fresh=DB::table((new $model)->getTable())->where('uuid',$id)->first();crudCheck($singular.' malformed envelopes preserve original name',$fresh&&$fresh->name===$body['name'].' edited');
   [$c]=crudCall('DELETE',$path);crudCheck($singular.' owner delete succeeds',$c===200&&!DB::table((new $model)->getTable())->where('uuid',$id)->whereNull('deleted_at')->exists(),$c);
   if($singular==='vehicle'){
    $driverRow=DB::table('drivers')->where('uuid',$ownDriver)->first(['deleted_at','vehicle_uuid']);

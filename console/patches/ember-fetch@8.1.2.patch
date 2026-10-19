@@ -1,0 +1,23 @@
+diff --git a/index.js b/index.js
+index 00f296644eda76fb1ad425ca431919274572b3c4..f8e119186553f24fd59a5cabf568ba697fcf8aef 100644
+--- a/index.js
++++ b/index.js
+@@ -204,7 +204,8 @@ module.exports = {
+         rollup: {
+           input: 'fetch.js',
+           output: {
+-            file: 'fetch.js',
++            // A distinct output name is required by broccoli-rollup's input/output diff.
++            file: 'whatwg-fetch.js',
+             name: 'WHATWGFetch',
+             format: 'iife'
+           }
+@@ -212,7 +213,7 @@ module.exports = {
+       }), 'whatwg-fetch');
+ 
+       inputNodes.push(fetchNode);
+-      inputFiles.push('fetch.js');
++      inputFiles.push('whatwg-fetch.js');
+     }
+ 
+     const polyfillNode = debug(concat(new MergeTrees(inputNodes), {

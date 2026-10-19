@@ -1,0 +1,64 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 6a7edc70205b79298aede196940be73562ee25f2..368187f9ea13790982f76bef3d903345d087fc5e 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -316,6 +316,11 @@ function mergeAttributes(...objects) {
+         .reduce((items, item) => {
+         const mergedAttributes = { ...items };
+         Object.entries(item).forEach(([key, value]) => {
++            // Security backport: https://github.com/ueberdosis/tiptap/commit/01d7af8
++            if (key === '__proto__') {
++                Object.defineProperty(mergedAttributes, key, { configurable: true, enumerable: true, value, writable: true });
++                return;
++            }
+             const exists = mergedAttributes[key];
+             if (!exists) {
+                 mergedAttributes[key] = value;
+diff --git a/dist/index.js b/dist/index.js
+index 8efbf7f4d2a2fe1693b148e7b1ccc6ca228496f2..4ca466061d091ec4a63b99b152ad7b1ed90ca3b4 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -314,6 +314,11 @@ function mergeAttributes(...objects) {
+         .reduce((items, item) => {
+         const mergedAttributes = { ...items };
+         Object.entries(item).forEach(([key, value]) => {
++            // Security backport: https://github.com/ueberdosis/tiptap/commit/01d7af8
++            if (key === '__proto__') {
++                Object.defineProperty(mergedAttributes, key, { configurable: true, enumerable: true, value, writable: true });
++                return;
++            }
+             const exists = mergedAttributes[key];
+             if (!exists) {
+                 mergedAttributes[key] = value;
+diff --git a/dist/index.umd.js b/dist/index.umd.js
+index 404ccfcd0e75f2b786d6de3c968f104e31f602bb..c99bcffbbe93bf2f147520d2b93248db8c8365a1 100644
+--- a/dist/index.umd.js
++++ b/dist/index.umd.js
+@@ -312,6 +312,11 @@
+           .reduce((items, item) => {
+           const mergedAttributes = { ...items };
+           Object.entries(item).forEach(([key, value]) => {
++            // Security backport: https://github.com/ueberdosis/tiptap/commit/01d7af8
++            if (key === '__proto__') {
++                Object.defineProperty(mergedAttributes, key, { configurable: true, enumerable: true, value, writable: true });
++                return;
++            }
+               const exists = mergedAttributes[key];
+               if (!exists) {
+                   mergedAttributes[key] = value;
+diff --git a/src/utilities/mergeAttributes.ts b/src/utilities/mergeAttributes.ts
+index b98dc510391199e8c06c25ae945f2b350913e41a..6a04b0961b0875759b577cf89689e321e359d364 100644
+--- a/src/utilities/mergeAttributes.ts
++++ b/src/utilities/mergeAttributes.ts
+@@ -5,6 +5,11 @@ export function mergeAttributes(...objects: Record<string, any>[]): Record<strin
+       const mergedAttributes = { ...items }
+ 
+       Object.entries(item).forEach(([key, value]) => {
++        // Security backport: https://github.com/ueberdosis/tiptap/commit/01d7af8
++        if (key === '__proto__') {
++            Object.defineProperty(mergedAttributes, key, { configurable: true, enumerable: true, value, writable: true });
++            return;
++        }
+         const exists = mergedAttributes[key]
+ 
+         if (!exists) {

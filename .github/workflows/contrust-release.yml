@@ -82,6 +82,8 @@ jobs:
       - name: Frozen dependencies and maintained vendor patches
         working-directory: console
         run: pnpm install --frozen-lockfile
+      - name: Dependency backport integrity and bounded build inputs
+        run: node scripts/release/check-dependency-security.cjs
       - name: Required full frontend regression suite
         working-directory: console
         shell: bash

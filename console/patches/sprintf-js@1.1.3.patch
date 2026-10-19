@@ -1,0 +1,25 @@
+diff --git a/src/sprintf.js b/src/sprintf.js
+index 65d6324645ef1d0133614a71497751009dc5c912..cc93effcc9c6b38c4088785e4d8eb3a25152ceae 100644
+--- a/src/sprintf.js
++++ b/src/sprintf.js
+@@ -142,6 +142,10 @@
+     var sprintf_cache = Object.create(null)
+ 
+     function sprintf_parse(fmt) {
++        // Bound build-time formats before allocation (GHSA-hp3w-g68c-fv3c).
++        if (typeof fmt !== 'string' || fmt.length > 65536) {
++            throw new RangeError('[sprintf] format exceeds safe length')
++        }
+         if (sprintf_cache[fmt]) {
+             return sprintf_cache[fmt]
+         }
+@@ -184,6 +188,9 @@
+                     throw new Error('[sprintf] mixing positional and named placeholders is not (yet) supported')
+                 }
+ 
++                if (Number(match[6]) > 10000 || Number(match[7]) > 10000) {
++                    throw new RangeError('[sprintf] width or precision exceeds safe limit')
++                }
+                 parse_tree.push(
+                     {
+                         placeholder: match[0],
