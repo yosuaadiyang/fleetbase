@@ -48,6 +48,22 @@ try{
    foreach(['PUT','DELETE'] as $method){[$c]=callReport($method,$path.'/'.$id,$method==='PUT'?['amount'=>100]:null);rc($path.' staff-approved report immutable for driver '.$method,$c===403,$c);}
    $r->refresh()->forceFill(['status'=>'draft'])->saveQuietly();
   }
+  $keyed=$body;$keyed['submission_id']='b8eb358f-e86d-41db-b873-4ce28c544ea6';
+  $before=$model::withoutCache()->where('driver_uuid',$d->uuid)->count();
+  [$c,$original]=callReport('POST',$path,$keyed);$keyedId=$original['id']??null;
+  rc($path.' keyed create confirmed',$c===201&&is_string($keyedId),$c);if(!$keyedId)throw new RuntimeException('Keyed synthetic report not saved');$created[]=[$model,$keyedId];
+  [$c,$replay,$replayHeaders]=callReport('POST',$path,$keyed);
+  rc($path.' lost response retry returns original ID',$c===201&&($replay['id']??null)===$keyedId,$c);
+  rc($path.' replay header confirmed',str_contains(strtolower(implode(' ',$replayHeaders)),'idempotency-replayed: true'));
+  rc($path.' retry does not insert duplicate',$model::withoutCache()->where('driver_uuid',$d->uuid)->count()===$before+1);
+  rc($path.' replay hides submission metadata',!isset($replay['meta'])&&!isset($replay['submission_id']));
+  [$c]=callReport('POST',$path,array_replace($keyed,$path==='issues'?['report'=>'Different synthetic body']:['volume'=>'9']));rc($path.' reused key with changed payload rejected',$c===409,$c);
+  foreach([null,'not-a-uuid',[],str_repeat('x',256)] as $n=>$bad){[$c]=callReport('POST',$path,array_replace($keyed,['submission_id'=>$bad]));rc($path.' malformed key rejected '.$n,$c===422,$c);}
+  [$c,$other]=callReport('POST',$path,$keyed,'driver_a_other');$otherId=$other['id']??null;if($otherId)$created[]=[$model,$otherId];rc($path.' same key different own-org driver is separate',$c===201&&$otherId&&$otherId!==$keyedId,$c);
+  [$c,$otherTenant]=callReport('POST',$path,$keyed,'driver_b');$tenantId=$otherTenant['id']??null;if($tenantId)$created[]=[$model,$tenantId];rc($path.' same key foreign tenant cannot replay',$c===201&&$tenantId&&$tenantId!==$keyedId,$c);
+  [$c]=callReport('PUT',$path.'/'.$keyedId,['submission_id'=>$keyed['submission_id']]);rc($path.' submission metadata cannot be rewritten',$c===403,$c);
+  [$c]=callReport('DELETE',$path.'/'.$keyedId);rc($path.' keyed report delete succeeds',$c===200,$c);
+  [$c]=callReport('POST',$path,$keyed);rc($path.' deleted operation never recreated',$c===410,$c);
   [$c]=callReport('DELETE',$path.'/'.$id);rc($path.' own editable report delete',$c===200,$c);
   [$c]=callReport('GET',$path.'/'.$id);rc($path.' deleted record unavailable',$c===403,$c);
  }

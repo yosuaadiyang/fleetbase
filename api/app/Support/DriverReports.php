@@ -27,7 +27,7 @@ final class DriverReports
         if (!OrganizationChat::members($driver->company_uuid)->where('uuid', $user->uuid)->exists()) return self::denied();
         if (!in_array($action, ['query', 'find', 'create', 'update', 'delete'], true)) return self::denied();
         $fields = $fuel ? ['status', 'odometer', 'volume', 'metric_unit', 'amount', 'currency', 'location'] : ['type', 'category', 'report', 'priority', 'status', 'location'];
-        $allowed = in_array($action, ['create', 'update'], true) ? [...$fields, 'driver'] : ($action === 'query' ? ['sort', 'driver'] : []);
+        $allowed = in_array($action, ['create', 'update'], true) ? [...$fields, 'driver', ...($action === 'create' ? ['submission_id'] : [])] : ($action === 'query' ? ['sort', 'driver'] : []);
         if (array_diff(array_keys($request->all()), $allowed)) return self::denied();
         if ($request->has('driver') && !in_array($request->input('driver'), [$driver->public_id, $driver->uuid], true)) return self::denied();
         $model = $fuel ? FuelReport::class : Issue::class;
@@ -84,6 +84,27 @@ final class DriverReports
             if (!is_numeric($lng) || !is_numeric($lat) || !is_finite((float) $lng) || !is_finite((float) $lat) || abs((float) $lng) > 180 || abs((float) $lat) > 90) return self::invalid();
             $data['location'] = new Point((float) $lat, (float) $lng);
         }
+        $submission = $action === 'create' ? $request->input('submission_id') : null;
+        $submissionHash = null;
+        $requestHash = null;
+        if ($action === 'create' && $request->exists('submission_id')) {
+            if (!is_string($submission) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD', $submission)) return self::invalid();
+            $submissionHash = hash('sha256', strtolower($submission));
+            $canonical = $data;
+            if (isset($canonical['location'])) $canonical['location'] = [$canonical['location']->getLng(), $canonical['location']->getLat()];
+            foreach ($fuel ? ['odometer', 'volume', 'amount'] : [] as $field) $canonical[$field] = (float) $canonical[$field];
+            ksort($canonical);
+            $requestHash = hash('sha256', json_encode($canonical, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
+            // Serialize keyed creates across workers. The report lookup is a locking
+            // current read, so an earlier transaction's snapshot cannot hide a replay.
+            Driver::withoutCache()->where('uuid', $driver->uuid)->where('company_uuid', $driver->company_uuid)->lockForUpdate()->firstOrFail();
+            $existing = (clone $query)->withTrashed()->where('meta->contrust_submission->key', $submissionHash)->lockForUpdate()->first();
+            if ($existing) {
+                if (!hash_equals((string) data_get($existing->meta, 'contrust_submission.payload'), $requestHash)) return self::reply(['errors' => ['This submission belongs to a different report payload.'], 'code' => 'REPORT_SUBMISSION_CONFLICT'], 409);
+                if ($existing->trashed()) return self::reply(['errors' => ['This report was removed. Check the report list.'], 'code' => 'REPORT_SUBMISSION_REMOVED'], 410);
+                return self::reply(self::record($existing, $fuel), 201)->header('Idempotency-Replayed', 'true');
+            }
+        }
         $key = 'contrust:report:' . $driver->uuid;
         if (RateLimiter::tooManyAttempts($key, 30)) return self::reply(['errors' => ['Please wait before trying again.']], 429);
         RateLimiter::hit($key, 60);
@@ -94,6 +115,7 @@ final class DriverReports
                 'status' => $fuel ? 'draft' : 'pending']);
         }
         $record->fill($data);
+        if ($submissionHash !== null) $record->setAttribute('meta', ['contrust_submission' => ['key' => $submissionHash, 'payload' => $requestHash]]);
         $record->save();
         return self::reply(self::record($record->fresh(), $fuel), $action === 'create' ? 201 : 200);
     }
