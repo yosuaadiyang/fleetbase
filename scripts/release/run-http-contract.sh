@@ -28,8 +28,22 @@ if ! "${compose[@]}" up -d --pull never database cache; then
 fi
 # Initialize before starting HTTP. A fresh migration should not share the
 # application container's memory allowance with a second PHP server process.
-"${compose[@]}" run --rm -T application php artisan migrate --force
-"${compose[@]}" run --rm -T application php artisan fleetbase:create-permissions
+initialize_compose=("${compose[@]}" -f docker/release-qa/compose.initialize.yml)
+run_initialize() {
+ local status=0 name="contrust-release-qa-initialize-$$"
+ "${initialize_compose[@]}" run --name "$name" -T application php artisan "$@" || status=$?
+ # Keep the stopped CLI container until its actual exit/oom state is recorded.
+ # No environment, tokens, command arguments, or application logs are printed.
+ docker inspect --format '{"initializer_exit":{{.State.ExitCode}},"oom_killed":{{.State.OOMKilled}},"started_at":"{{.State.StartedAt}}","finished_at":"{{.State.FinishedAt}}"}' "$name" || true
+ docker rm "$name" >/dev/null
+ if [ "$status" -ne 0 ]; then
+  free -m
+  df -h /
+  return "$status"
+ fi
+}
+run_initialize migrate --force
+run_initialize fleetbase:create-permissions
 "${compose[@]}" up -d --wait --wait-timeout 120 --pull never application
 report_file=$(mktemp)
 trap 'rm -f "$report_file"' EXIT

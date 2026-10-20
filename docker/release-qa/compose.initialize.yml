@@ -1,0 +1,6 @@
+# CLI migrations have no HTTP listener. Keep the HTTP healthcheck on the server
+# service, but do not launch repeated HTTP probes inside a migration process.
+services:
+  application:
+    healthcheck:
+      disable: true
