@@ -10,6 +10,24 @@ use Illuminate\Support\Facades\{Crypt, DB};
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use NotificationChannels\Fcm\FcmChannel;
+use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Messaging\{Message, Messages, RegistrationToken, RegistrationTokens, MulticastSendReport, Topic, AppInstance};
+
+final class SyntheticMessaging implements Messaging
+{
+    public array $sent = []; public ?Throwable $failure = null;
+    public function send(Message|array $message, bool $validateOnly = false): array { if ($this->failure) throw $this->failure; $this->sent[] = json_decode(json_encode($message), true); return ['name' => 'synthetic-message']; }
+    public function sendMulticast(Message|array $message, RegistrationTokens|RegistrationToken|array|string $registrationTokens, bool $validateOnly = false): MulticastSendReport { throw new LogicException('Unexpected multicast'); }
+    public function sendAll(array|Messages $messages, bool $validateOnly = false): MulticastSendReport { throw new LogicException('Unexpected batch'); }
+    public function validate(Message|array $message): array { throw new LogicException('Unexpected validate'); }
+    public function validateRegistrationTokens(RegistrationTokens|RegistrationToken|array|string $registrationTokenOrTokens): array { throw new LogicException('Unexpected validation'); }
+    public function subscribeToTopic(string|Topic $topic, RegistrationTokens|RegistrationToken|array|string $registrationTokenOrTokens): array { throw new LogicException('No public topics'); }
+    public function subscribeToTopics(iterable $topics, RegistrationTokens|RegistrationToken|array|string $registrationTokenOrTokens): array { throw new LogicException('No public topics'); }
+    public function unsubscribeFromTopic(string|Topic $topic, RegistrationTokens|RegistrationToken|array|string $registrationTokenOrTokens): array { throw new LogicException('No public topics'); }
+    public function unsubscribeFromTopics(array $topics, RegistrationTokens|RegistrationToken|array|string $registrationTokenOrTokens): array { throw new LogicException('No public topics'); }
+    public function unsubscribeFromAllTopics(RegistrationTokens|RegistrationToken|array|string $registrationTokenOrTokens): array { throw new LogicException('No public topics'); }
+    public function getAppInstance(RegistrationToken|string $registrationToken): AppInstance { throw new LogicException('No app instance lookup'); }
+}
 
 if (getenv('CONTRUST_RELEASE_QA') !== 'synthetic-only' || DB::connection()->getDatabaseName() !== 'contrust_release_qa'
     || config('mail.default') !== 'log' || config('broadcasting.default') !== 'log') throw new RuntimeException('Unsafe push QA environment');
@@ -90,7 +108,26 @@ try {
     pushCheck('installed Firebase SDK accepts generic Android payload', $message instanceof Kreait\Firebase\Messaging\CloudMessage);
     pushCheck('push data has no chat content or work identity', $payload['data'] === ['type' => 'contrust_update'] && array_keys($payload) === ['notification', 'data', 'android']);
     pushCheck('push lifetime and collapse key bound late delivery', $payload['android']['ttl'] === '60s' && $payload['android']['collapse_key'] === 'contrust_update');
-    pushCheck('FCM channel binding resolves to privacy preserving transport', $app->getBindings()[FcmChannel::class]['concrete'] instanceof Closure);
+    $fake = new SyntheticMessaging(); $app->instance(Messaging::class, $fake);
+    $transport = $app->make(FcmChannel::class);
+    pushCheck('FCM channel binding resolves to privacy preserving transport', $transport instanceof PrivateFcmChannel);
+    $sent = $transport->send($users['driver_b'], $notification);
+    pushCheck('transport sends once to current bound installation using fake SDK', $sent?->count() === 1 && count($fake->sent) === 1);
+    $wire = $fake->sent[0];
+    pushCheck('actual wire message omits notification-specific private data', ($wire['data'] ?? null) === ['type' => 'contrust_update'] && ($wire['notification']['title'] ?? null) === 'Contrust');
+    pushCheck('wire target is current token and not a public topic', ($wire['token'] ?? null) === $rotated['token'] && !isset($wire['topic'], $wire['condition']));
+    $transport->send($users['driver_a'], $notification);
+    pushCheck('revoked account cannot reach transport even if policy is bypassed', count($fake->sent) === 1);
+    config(['contrust.mobile_push_enabled' => false]); $transport->send($users['driver_b'], $notification);
+    pushCheck('transport independently honors disabled push gate', count($fake->sent) === 1);
+    config(['contrust.mobile_push_enabled' => true]);
+    $fake->failure = new RuntimeException('synthetic-sensitive-device-token'); $safeFailure = false;
+    try { $transport->send($users['driver_b'], $notification); }
+    catch (RuntimeException $exception) { $safeFailure = $exception->getMessage() === 'Contrust push delivery temporarily unavailable.' && $exception->getPrevious() === null; }
+    pushCheck('transport failure is redacted before reaching queue logs', $safeFailure);
+    $fake->failure = new Kreait\Firebase\Exception\Messaging\NotFound('synthetic-not-registered');
+    $transport->send($users['driver_b'], $notification);
+    pushCheck('unregistered token is removed instead of retried forever', DriverPushDevices::eligible($users['driver_b']) === []);
 } finally {
     if ($ids) { DB::table(DriverPushDevices::TABLE)->whereIn('token_id', array_values($ids))->delete(); PersonalAccessToken::whereIn('id', array_values($ids))->delete(); }
     config(['contrust.mobile_push_enabled' => false]);

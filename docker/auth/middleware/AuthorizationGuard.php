@@ -18,6 +18,8 @@ class AuthorizationGuard
             return response()->authorizationError()->setStatusCode(403);
         }
 
+        if ($response = \App\Support\InternalChatAccess::check($request, $user)) return $response;
+
         return $next($request);
     }
 }

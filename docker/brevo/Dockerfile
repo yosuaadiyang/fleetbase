@@ -18,6 +18,8 @@ RUN php /tmp/contrust-patch-driver-auth.php \
     && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/DriverController.php \
     && rm /tmp/contrust-patch-driver-auth.php
 COPY api/app/Support/ManagedDriverApiAccess.php /fleetbase/api/app/Support/ManagedDriverApiAccess.php
+COPY api/app/Support/InternalChatAccess.php /fleetbase/api/app/Support/InternalChatAccess.php
+RUN php -l /fleetbase/api/app/Support/InternalChatAccess.php
 COPY api/app/Support/DriverOrderComments.php /fleetbase/api/app/Support/DriverOrderComments.php
 COPY api/app/Support/OrganizationChat.php api/app/Support/ChatPagination.php /fleetbase/api/app/Support/
 RUN php -l /fleetbase/api/app/Support/ChatPagination.php

@@ -65,6 +65,7 @@ run_fixture driver-comment-contract.php driver-comments
 run_fixture organization-chat-contract.php organization-chat
 run_fixture chat-pagination-contract.php chat-pagination
 run_fixture push-device-contract.php push-devices
+run_fixture internal-chat-contract.php internal-chat
 
 run_fixture driver-report-contract.php driver-reports
 

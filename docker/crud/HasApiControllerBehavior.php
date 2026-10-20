@@ -398,8 +398,9 @@ trait HasApiControllerBehavior
     public function queryRecord(Request $request)
     {
         $single        = $request->boolean('single');
-        $queryCallback = $this->getControllerCallback('onQueryRecord');
-        $data          = $this->model->queryFromRequest($request, $queryCallback);
+        $queryCallback = \App\Support\InternalChatAccess::callback($request, $this->getControllerCallback('onQueryRecord'));
+        $queryModel = \App\Support\InternalChatAccess::kind($request) ? $this->model::withoutCache() : $this->model;
+        $data          = $queryModel->queryFromRequest($request, $queryCallback);
 
         if ($single) {
             $data = Arr::first($data);
@@ -453,7 +454,7 @@ trait HasApiControllerBehavior
      */
     public function findRecord(Request $request, $id)
     {
-        $queryCallback = $this->getControllerCallback('onFindRecord');
+        $queryCallback = \App\Support\InternalChatAccess::callback($request, $this->getControllerCallback('onFindRecord'));
         $record        = $this->model->getById($id, $queryCallback, $request);
 
         if ($record) {
