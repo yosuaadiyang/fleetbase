@@ -21,13 +21,16 @@ assert all('env' not in x.get('source','') for x in a['volumes'] if x['type']=='
 assert all(x['image'].startswith('sha256:') for x in c['services'].values())
 print('PASS isolated synthetic QA config: private network, loopback port, log mail, pinned images')
 PY
-if ! "${compose[@]}" up -d --pull never database cache application; then
+if ! "${compose[@]}" up -d --pull never database cache; then
  # Pinned QA MySQL logs contain startup diagnostics; no SQL general log or data.
  "${compose[@]}" logs --no-color --tail 60 database >&2
  exit 1
 fi
-"${compose[@]}" exec -T application php artisan migrate --force
-"${compose[@]}" exec -T application php artisan fleetbase:create-permissions
+# Initialize before starting HTTP. A fresh migration should not share the
+# application container's memory allowance with a second PHP server process.
+"${compose[@]}" run --rm -T application php artisan migrate --force
+"${compose[@]}" run --rm -T application php artisan fleetbase:create-permissions
+"${compose[@]}" up -d --wait --wait-timeout 120 --pull never application
 report_file=$(mktemp)
 trap 'rm -f "$report_file"' EXIT
 run_fixture() {
