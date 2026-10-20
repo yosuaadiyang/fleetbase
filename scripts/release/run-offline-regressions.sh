@@ -24,3 +24,5 @@ run_test routing real-vendor-test.php
 
 run_test socket publisher-test.php
 run_test notifications channel-policy-test.php
+
+run_test chat pagination-input-test.php

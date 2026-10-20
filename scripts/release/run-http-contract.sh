@@ -60,6 +60,7 @@ run_fixture proof-file-contract.php proof-files
 
 run_fixture driver-comment-contract.php driver-comments
 run_fixture organization-chat-contract.php organization-chat
+run_fixture chat-pagination-contract.php chat-pagination
 
 run_fixture driver-report-contract.php driver-reports
 

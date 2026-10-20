@@ -32,8 +32,17 @@ final class OrganizationChat
     {
         if (!is_string($user->company_uuid) || !self::members($user->company_uuid)->where('uuid', $user->uuid)->exists()) return self::denied();
         $company = $user->company_uuid;
+        // Ember posts a named resource; Navigator posts flat JSON. Normalize
+        // only a sole object wrapper, then apply the same ownership allowlist.
+        foreach (['chatChannel', 'chat_channel'] as $wrapper) {
+            if (!$request->has($wrapper)) continue;
+            $payload = $request->input($wrapper);
+            if (count($request->all()) !== 1 || !is_array($payload) || array_is_list($payload)) return self::invalid();
+            $request->replace($payload);
+            break;
+        }
         $fields = [
-            'getAvailablePartificants' => ['channel'], 'query' => ['sort'], 'find' => [],
+            'getAvailablePartificants' => ['channel', 'limit', 'cursor'], 'query' => ['sort', 'limit', 'cursor'], 'find' => ['limit', 'cursor'],
             'create' => ['name', 'participants'], 'update' => ['name'], 'delete' => [],
             'sendMessage' => ['sender', 'content', 'files'], 'deleteMessage' => [],
             'createReadReceipt' => ['participant'], 'addParticipant' => ['user'], 'removeParticipant' => [],
@@ -42,19 +51,25 @@ final class OrganizationChat
         $id = $request->route()->parameter('id');
         if ($action === 'getAvailablePartificants') {
             $query = self::members($company)->where('uuid', '!=', $user->uuid);
+            $scope = 'members:all';
             if ($request->has('channel')) {
                 $channelId = $request->input('channel');
                 $channel = is_string($channelId) ? self::channel($user, $channelId) : null;
                 if (!$channel) return self::denied();
                 $query->whereNotIn('uuid', $channel->participants()->select('user_uuid'));
+                $scope = 'members:' . $channel->public_id;
             }
-            // Bound the response independently of client-supplied filters.
-            return self::response($query->orderBy('name')->orderBy('uuid')->limit(500)->get()->map(fn ($u) => self::userRecord($u))->all());
+            try { $page = ChatPagination::options($request, $scope, 500); }
+            catch (\InvalidArgumentException) { return self::invalid(); }
+            return self::response(ChatPagination::apply($query, $page, 'name', false)->limit($page['limit'])->get()
+                ->map(fn ($u) => self::userRecord($u) + ['cursor' => ChatPagination::cursor($scope, $u->name, $u->public_id)])->all());
         }
         if ($action === 'query') {
+            try { $page = ChatPagination::options($request, 'channels'); }
+            catch (\InvalidArgumentException) { return self::invalid(); }
             $channels = ChatChannel::withoutCache()->where('company_uuid', $company)
-                ->whereHas('participants', fn ($q) => $q->where('company_uuid', $company)->where('user_uuid', $user->uuid))
-                ->latest()->limit(100)->get();
+                ->whereHas('participants', fn ($q) => $q->where('company_uuid', $company)->where('user_uuid', $user->uuid));
+            $channels = ChatPagination::apply($channels, $page)->limit($page['limit'])->get();
             return self::response($channels->map(fn ($c) => self::channelRecord($c, $user, false))->all());
         }
         if ($action === 'create') {
@@ -91,7 +106,11 @@ final class OrganizationChat
         if (!$channel) return self::denied();
         $actor = $channel->participants()->where('company_uuid', $company)->where('user_uuid', $user->uuid)->first();
         if (!$actor) return self::denied();
-        if ($action === 'find') return self::response(self::channelRecord($channel, $user));
+        if ($action === 'find') {
+            try { $page = ChatPagination::options($request, 'messages:' . $channel->public_id); }
+            catch (\InvalidArgumentException) { return self::invalid(); }
+            return self::response(self::channelRecord($channel, $user, true, $page));
+        }
         if (in_array($action, ['update', 'delete', 'addParticipant'], true) && $channel->created_by_uuid !== $user->uuid) return self::denied();
         if ($action === 'update') {
             $name = self::text($request->input('name'), 2, 120);
@@ -174,35 +193,50 @@ final class OrganizationChat
     {
         return ['id' => $user->public_id, 'name' => $user->name, 'avatar_url' => $user->avatar_url];
     }
-    private static function participantRecord(ChatParticipant $participant): array
+    private static function participantRecord(ChatParticipant $participant, ?array $members = null): array
     {
-        $user = self::members($participant->company_uuid)->where('uuid', $participant->user_uuid)->first();
+        $user = $members === null ? self::members($participant->company_uuid)->where('uuid', $participant->user_uuid)->first()
+            : ($members[$participant->user_uuid] ?? null);
         return ['id' => $participant->public_id, 'user' => $user?->public_id, 'name' => $user?->name ?? 'Former member',
             'avatar_url' => $user?->avatar_url, 'is_online' => $user ? $user->isOnline() : false,
             'last_seen_at' => $user?->lastSeenAt()?->toISOString(), 'created_at' => $participant->created_at?->toISOString()];
     }
-    private static function receiptRecord(ChatReceipt $receipt): array
+    private static function receiptRecord(ChatReceipt $receipt, ?array $participants = null): array
     {
-        return ['id' => $receipt->uuid, 'participant' => $receipt->participant?->public_id,
-            'participant_name' => $receipt->participant?->name ?? 'Former member', 'read_at' => $receipt->read_at?->toISOString()];
+        $participant = $participants === null ? null : ($participants[$receipt->participant_uuid] ?? null);
+        return ['id' => $receipt->uuid, 'participant' => $participants === null ? $receipt->participant?->public_id : ($participant['id'] ?? null),
+            'participant_name' => $participants === null ? ($receipt->participant?->name ?? 'Former member') : ($participant['name'] ?? 'Former member'),
+            'read_at' => $receipt->read_at?->toISOString()];
     }
-    private static function messageRecord(ChatMessage $message): array
+    private static function messageRecord(ChatMessage $message, ?array $participants = null): array
     {
         return ['id' => $message->public_id, 'content' => $message->content,
-            'sender' => $message->sender ? self::participantRecord($message->sender) : null,
-            'attachments' => [], 'receipts' => $message->receipts->map(fn ($r) => self::receiptRecord($r))->all(),
+            'sender' => $participants === null ? ($message->sender ? self::participantRecord($message->sender) : null) : ($participants[$message->sender_uuid] ?? null),
+            'attachments' => [], 'receipts' => $message->receipts->map(fn ($r) => self::receiptRecord($r, $participants))->all(),
             'created_at' => $message->created_at?->toISOString(), 'updated_at' => $message->updated_at?->toISOString()];
     }
-    private static function channelRecord(ChatChannel $channel, User $user, bool $feed = true): array
+    private static function channelRecord(ChatChannel $channel, User $user, bool $feed = true, ?array $page = null): array
     {
+        $page ??= ['limit' => 100, 'after' => null];
         $participants = $channel->participants()->where('company_uuid', $channel->company_uuid)->get();
-        $messages = $channel->messages()->where('company_uuid', $channel->company_uuid)->latest()->orderByDesc('uuid')->limit($feed ? 100 : 1)->get();
-        $last = $messages->first();
+        $members = self::members($channel->company_uuid)->whereIn('uuid', $participants->pluck('user_uuid'))->get()->keyBy('uuid')->all();
+        $participantRecords = $participants->mapWithKeys(fn ($p) => [$p->uuid => self::participantRecord($p, $members)])->all();
+        $query = ChatMessage::withoutCache()->with('receipts')->where('chat_channel_uuid', $channel->uuid)->where('company_uuid', $channel->company_uuid);
+        $baseQuery = clone $query;
+        $messages = ChatPagination::apply($query, $page)->limit($feed ? $page['limit'] + 1 : 1)->get();
+        $hasMore = $feed && $messages->count() > $page['limit'];
+        if ($feed) $messages = $messages->take($page['limit']);
+        $last = $page['after'] === null ? $messages->first()
+            : ChatPagination::apply($baseQuery, ['after' => null])->first();
+        $oldest = $messages->last();
         return ['id' => $channel->public_id, 'name' => $channel->name, 'title' => $channel->name ?: 'Organization chat',
-            'created_by' => $channel->createdBy?->public_id, 'participants' => $participants->map(fn ($p) => self::participantRecord($p))->all(),
-            'last_message' => $last ? self::messageRecord($last) : null, 'unread_count' => $channel->getUnreadMessageCountForUser($user),
-            'feed' => $feed ? $messages->reverse()->values()->map(fn ($m) => ['type' => 'message', 'data' => self::messageRecord($m), 'created_at' => $m->created_at?->toISOString()])->all() : [],
-            'history_limit' => 100, 'created_at' => $channel->created_at?->toISOString(), 'updated_at' => $channel->updated_at?->toISOString()];
+            'created_by' => $channel->createdBy?->public_id, 'participants' => array_values($participantRecords),
+            'last_message' => $last ? self::messageRecord($last, $participantRecords) : null, 'unread_count' => $channel->getUnreadMessageCountForUser($user),
+            'feed' => $feed ? $messages->reverse()->values()->map(fn ($m) => ['type' => 'message', 'data' => self::messageRecord($m, $participantRecords), 'created_at' => $m->created_at?->toISOString()])->all() : [],
+            'history_limit' => $page['limit'], 'history_has_more' => $hasMore,
+            'history_next_cursor' => $hasMore && $oldest ? ChatPagination::cursor('messages:' . $channel->public_id, $oldest->getRawOriginal('created_at'), $oldest->public_id) : null,
+            'cursor' => ChatPagination::cursor('channels', $channel->getRawOriginal('created_at'), $channel->public_id),
+            'created_at' => $channel->created_at?->toISOString(), 'updated_at' => $channel->updated_at?->toISOString()];
     }
     private static function text($value, int $min, int $max): ?string
     {

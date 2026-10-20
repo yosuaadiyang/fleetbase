@@ -40,7 +40,7 @@ try {
     chatCheck('directory includes organization staff', in_array($state['users']['viewer_a']['public_id'], $ids, true));
     chatCheck('directory includes other own-organization driver', in_array($state['users']['driver_a_other']['public_id'], $ids, true));
     chatCheck('directory omits foreign user and actor', !in_array($state['users']['driver_b']['public_id'], $ids, true) && !in_array($state['users']['driver_a']['public_id'], $ids, true));
-    chatCheck('directory contains no contact or tenant fields', !array_filter($people, fn ($p) => array_diff(array_keys($p), ['id', 'name', 'avatar_url'])));
+    chatCheck('directory contains no contact or tenant fields', !array_filter($people, fn ($p) => array_diff(array_keys($p), ['id', 'name', 'avatar_url', 'cursor'])));
     chatCheck('directory disables shared caching', str_contains(strtolower(implode(' ', $headers)), 'no-store'));
     $body = ['name' => 'Synthetic Organization Chat', 'participants' => [$state['users']['driver_a']['public_id'], $state['users']['viewer_a']['public_id'], $state['users']['viewer_a']['public_id']]];
     [$code, $channel] = chatCall('POST', 'chat-channels', $body, 'driver_a');
