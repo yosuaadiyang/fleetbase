@@ -42,10 +42,11 @@ channelCheck($sent === ['mail', 'broadcast'], 'enabled push without valid device
 channelCheck(!in_array(FcmChannel::class, $constructed) && !in_array(ApnChannel::class, $constructed), 'missing token does not resolve missing Firebase configuration');
 $sent = [];
 $sender->sendNow($recipient, $notification);
-channelCheck($sent === ['mail', 'broadcast', FcmChannel::class, ApnChannel::class], 'explicitly enabled configured channels remain available');
+channelCheck($sent === ['mail', 'broadcast'], 'legacy or anonymous device routes never bypass session bindings');
 $events->listen(NotificationSending::class, fn ($event) => $event->channel === 'mail' ? false : null);
 $sent = [];
 $sender->sendNow($recipient, $notification);
 channelCheck(!in_array('mail', $sent), 'policy does not bypass a later listener denial');
 channelCheck(in_array('broadcast', $sent), 'later mail denial does not suppress in-app notifications');
+channelCheck(!in_array(FcmChannel::class, $constructed) && !in_array(ApnChannel::class, $constructed), 'unbound tokens never construct SDK clients even when push is enabled');
 echo $checks . ' optional notification channel checks passed; fake drivers only, no external email or push.' . PHP_EOL;

@@ -19,7 +19,8 @@ final class NotificationChannelPolicy
         // Null preserves later listeners, including other authorization vetoes.
         if ($route === null) return null;
         if (config('contrust.mobile_push_enabled', false) !== true) return false;
-        $tokens = (array) $event->notifiable->routeNotificationFor($route, $event->notification);
-        return array_filter($tokens, fn ($token) => is_string($token) && trim($token) !== '') ? null : false;
+        // This Android release does not support APNs or unbound legacy devices.
+        if ($route !== 'fcm' || !$event->notifiable instanceof \Fleetbase\Models\User) return false;
+        return DriverPushDevices::eligible($event->notifiable) ? null : false;
     }
 }

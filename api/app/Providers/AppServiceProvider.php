@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Never authorize administrative operations from caller-controlled IP headers.
         $this->app->bind(\Appstract\Opcache\Http\Middleware\Request::class, \App\Http\Middleware\AuthenticatedOpcacheRequest::class);
+        $this->app->bind(\NotificationChannels\Fcm\FcmChannel::class, \App\Support\PrivateFcmChannel::class);
     }
 
     /**
@@ -45,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->loadMigrationsFrom(database_path('contrust-migrations'));
         \App\Support\ProofFileAccess::configureDisk();
         config(['contrust.mobile_push_enabled' => filter_var(env('CONTRUST_MOBILE_PUSH_ENABLED', false), FILTER_VALIDATE_BOOLEAN)]);
         Event::listen(\Illuminate\Notifications\Events\NotificationSending::class, [\App\Support\NotificationChannelPolicy::class, 'handle']);

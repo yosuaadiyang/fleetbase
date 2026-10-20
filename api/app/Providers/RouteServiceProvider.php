@@ -29,6 +29,8 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->routes(
             function () {
+                Route::post('/int/v1/contrust/push-devices', [\App\Http\Controllers\DriverPushDeviceController::class, 'store']);
+                Route::delete('/int/v1/contrust/push-devices', [\App\Http\Controllers\DriverPushDeviceController::class, 'destroy']);
                 Route::get('/contrust/private-files/{id}', [\App\Http\Controllers\ProofFileController::class, 'show']);
                 Route::post('/int/v1/contrust/socket-authorize', [\App\Http\Controllers\SocketAuthorizationController::class, 'authorize']);
                 Route::get('/int/v1/contrust/socket-session', [\App\Http\Controllers\SocketAuthorizationController::class, 'session']);

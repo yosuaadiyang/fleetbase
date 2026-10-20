@@ -53,6 +53,9 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginReque
 RUN echo '77ee2b924bbc059808d2b6849c4bbfc47f601aeec5b4cf4814904422a2005ef5  /fleetbase/api/app/Providers/AppServiceProvider.php' | sha256sum --check
 COPY api/app/Support/ProofFileAccess.php /fleetbase/api/app/Support/ProofFileAccess.php
 COPY api/app/Support/NotificationChannelPolicy.php /fleetbase/api/app/Support/NotificationChannelPolicy.php
+COPY api/app/Support/DriverPushDevices.php api/app/Support/PrivateFcmChannel.php /fleetbase/api/app/Support/
+COPY api/app/Http/Controllers/DriverPushDeviceController.php /fleetbase/api/app/Http/Controllers/
+COPY api/database/contrust-migrations/ /fleetbase/api/database/contrust-migrations/
 COPY api/app/Providers/AppServiceProvider.php /fleetbase/api/app/Providers/AppServiceProvider.php
 COPY docker/brevo/vendor/BrevoApiTransport.php /fleetbase/api/app/Mail/BrevoApiTransport.php
 COPY docker/brevo/vendor/LICENSE /fleetbase/api/app/Mail/BREVO-BRIDGE-LICENSE
