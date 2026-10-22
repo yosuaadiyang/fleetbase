@@ -26,7 +26,19 @@ mv "$state/staging/database/contrust.sql.partial" "$state/staging/database/contr
 python3 - "$state/staging/config" <<'PY'
 import pathlib,shutil,sys,json,subprocess
 base=pathlib.Path('/opt/contrust');dest=pathlib.Path(sys.argv[1])
-for name in ['.env','api/.env','console/fleetbase.config.json','docker-compose.yml','docker-compose.override.yml','docker-compose.routing.yml','docker-compose.socket-security.yml','docker/caddy/Caddyfile','docker/httpd/vhost.conf']:
+for name in [
+ '.env','api/.env','console/fleetbase.config.json',
+ 'docker-compose.yml','docker-compose.override.yml','docker-compose.prod.yml',
+ 'docker-compose.routing.yml','docker-compose.socket-security.yml',
+ 'docker/caddy/Caddyfile','docker/httpd/vhost.conf',
+ # Active runtime overlays and the explicitly approved production FCM secret.
+ 'runtime/compose-push.yml','runtime/compose-public-policies.yml',
+ 'secrets/firebase/contrust-fcm-sender.json',
+ # These exact source/config files recreate the public-policy mounts.
+ 'console/nginx.conf','console/public/privacy/index.html',
+ 'console/public/terms/index.html','console/public/delete-account/index.html',
+ 'console/public/policy-assets/policies.css',
+]:
  p=base/name
  if p.is_file():
   q=dest/name;q.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,q)
