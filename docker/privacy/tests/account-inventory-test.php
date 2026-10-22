@@ -121,16 +121,16 @@ try {
 // The deployed wrapper must reject unsafe input before framework/database boot,
 // and never reflect private paths, account selectors or exception details.
 $directory = sys_get_temp_dir() . '/contrust-privacy-test-' . bin2hex(random_bytes(8));
-mkdir($directory, 0700);
+check(@mkdir($directory, 0700), 'private CLI fixture directory can be created');
 $selector = $directory . '/selector.json';
 try {
-    file_put_contents($selector, '{"user_uuid":42,"password":"synthetic-private-secret"}');
-    chmod($selector, 0600);
+    check(file_put_contents($selector, '{"user_uuid":42,"password":"synthetic-private-secret"}') !== false, 'invalid selector fixture exists');
+    check(chmod($selector, 0600), 'invalid selector fixture is private');
     $cases = [$selector];
-    symlink($selector, $directory . '/linked.json');
+    check(symlink($selector, $directory . '/linked.json'), 'symlink selector fixture exists');
     $cases[] = $directory . '/linked.json';
-    file_put_contents($directory . '/public.json', json_encode(['user_uuid' => $user]));
-    chmod($directory . '/public.json', 0644);
+    check(file_put_contents($directory . '/public.json', json_encode(['user_uuid' => $user])) !== false, 'public selector fixture exists');
+    check(chmod($directory . '/public.json', 0644), 'public selector fixture has unsafe permissions');
     $cases[] = $directory . '/public.json';
     foreach ($cases as $path) {
         $process = proc_open([PHP_BINARY, dirname(__DIR__) . '/account-inventory.php', $path], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
