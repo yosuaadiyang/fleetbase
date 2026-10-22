@@ -75,6 +75,7 @@ final class AccountDataInventory
             // are possible matches for review, never authority to delete tokens.
             'personal_access_tokens' => ['tokenable_id' => $identities],
             'user_devices' => ['user_uuid' => $user],
+            'contrust_push_devices' => ['user_uuid' => $user],
             'positions' => ['subject_uuid' => $drivers],
             'orders' => ['uuid' => $orders],
             'issues' => ['uuid' => $issues],

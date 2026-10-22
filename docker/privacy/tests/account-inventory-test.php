@@ -23,6 +23,7 @@ foreach ([
     'contacts' => 'uuid TEXT, user_uuid TEXT',
     'personal_access_tokens' => 'tokenable_id TEXT, token TEXT',
     'user_devices' => 'user_uuid TEXT, token TEXT',
+    'contrust_push_devices' => 'user_uuid TEXT, encrypted_token TEXT',
     'positions' => 'subject_uuid TEXT, coordinates TEXT',
     'orders' => 'uuid TEXT, driver_assigned_uuid TEXT, customer_uuid TEXT, created_by_uuid TEXT',
     'issues' => 'uuid TEXT, driver_uuid TEXT, reported_by_uuid TEXT',
@@ -50,6 +51,8 @@ insert($db, 'drivers', ['driver-1', $user]);
 insert($db, 'drivers', ['driver-2', $other]);
 insert($db, 'personal_access_tokens', [$user, 'synthetic-secret-token']);
 insert($db, 'user_devices', [$user, 'synthetic-push-token']);
+insert($db, 'contrust_push_devices', [$user, 'synthetic-encrypted-token']);
+insert($db, 'contrust_push_devices', [$other, 'other-encrypted-token']);
 insert($db, 'positions', ['driver-1', 'synthetic-private-location']);
 insert($db, 'positions', ['driver-2', 'other-private-location']);
 insert($db, 'orders', ['order-1', 'driver-1', null, $user]);
@@ -73,7 +76,7 @@ $db->exec('PRAGMA query_only = ON');
 $result = (new AccountDataInventory($db))->summarize($user);
 check((int) $db->query('SELECT total_changes()')->fetchColumn() === $changes, 'no database mutation');
 check($result['execution_supported'] === false && $result['complete_erasure_verified'] === false, 'never authorizes deletion or completion');
-foreach (['users', 'drivers', 'positions', 'orders', 'issues', 'fuel_reports', 'proofs', 'personal_access_tokens', 'user_devices', 'chat_messages', 'chat_receipts', 'chat_attachments', 'comments', 'activity_log'] as $table) {
+foreach (['users', 'drivers', 'positions', 'orders', 'issues', 'fuel_reports', 'proofs', 'personal_access_tokens', 'user_devices', 'contrust_push_devices', 'chat_messages', 'chat_receipts', 'chat_attachments', 'comments', 'activity_log'] as $table) {
     check($result['tables'][$table]['candidate_rows'] === 1, 'scoped relationship count for ' . $table);
 }
 check($result['tables']['files']['candidate_rows'] === 2, 'finds attached shared file without equating relation with ownership');
