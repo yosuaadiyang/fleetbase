@@ -75,4 +75,37 @@ module('Unit | Serializer | chat-channel | feed', function (hooks) {
         const withoutFeed = this.serializer.normalize(this.store.modelFor('chat-channel'), { uuid: 'ch_2', name: 'Ops' });
         assert.strictEqual(withoutFeed.data.id, 'ch_2', 'a payload with no feed normalizes normally');
     });
+    test('channel-list socket refresh preserves an open window history and its cursor', function (assert) {
+        const channel = this.store.push({
+            data: {
+                type: 'chat-channel',
+                id: 'room-history',
+                attributes: {
+                    feed: [{ type: 'message', created_at: '2026-01-01', record: { id: 'older' } }],
+                    feed_has_more: true,
+                    feed_next_cursor: 'older-cursor',
+                },
+            },
+        });
+        channel.preserve_feed_window = true;
+        const normalized = this.serializer.normalize(this.store.modelFor('chat-channel'), {
+            uuid: 'room-history',
+            feed: [{ type: 'message', created_at: '2026-02-01', data: { uuid: 'newer' } }],
+            feed_has_more: true,
+            feed_next_cursor: 'latest-window-cursor',
+        });
+        assert.deepEqual(
+            normalized.data.attributes.feed.map((x) => x.record.id),
+            ['older', 'newer']
+        );
+        assert.strictEqual(normalized.data.attributes.feed_next_cursor, 'older-cursor');
+        channel.preserve_feed_window = false;
+        const closed = this.serializer.normalize(this.store.modelFor('chat-channel'), {
+            uuid: 'room-history',
+            feed: [],
+            feed_has_more: false,
+            feed_next_cursor: null,
+        });
+        assert.deepEqual(closed.data.attributes.feed, [], 'closed windows accept a fresh bounded window');
+    });
 });

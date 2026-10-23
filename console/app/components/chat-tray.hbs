@@ -1,0 +1,74 @@
+<div class="next-user-button chat-tray" ...attributes>
+    <button
+        type="button"
+        class="chat-tray-panel-trigger {{@triggerClass}} {{if (media 'isMobile') 'is-mobile'}}"
+        aria-label="Open chat inbox"
+        aria-expanded={{if this.isInboxOpen "true" "false"}}
+        {{on "click" this.toggleInbox}}
+    >
+        <span class="next-org-button-trigger chat-tray-icon flex-shrink-0 {{if this.isInboxOpen 'is-open'}}">
+            <FaIcon @icon="message" />
+            {{#if this.unreadCount}}
+                <span class="chat-tray-unread-notifications-badge">{{this.unreadCount}}</span>
+            {{/if}}
+        </span>
+    </button>
+
+    {{#if this.isInboxOpen}}
+        <Overlay
+            @isOpen={{this.isInboxOpen}}
+            @position="right"
+            @width={{this.inboxWidth}}
+            @fullHeight={{true}}
+            @noBackdrop={{true}}
+            @overlayClass="chat-inbox-overlay"
+            @containerClass="chat-inbox-overlay-container"
+            @onClose={{this.closeInbox}}
+        >
+            <ChatTray::InboxPanel
+                @channels={{this.filteredChannels}}
+                @searchQuery={{this.searchQuery}}
+                @unreadCount={{this.unreadCount}}
+                @isLoading={{not this.chat.loadChannels.isIdle}}
+                @setSearchQuery={{this.setSearchQuery}}
+                @openChannel={{this.openChannel}}
+                @removeChannel={{this.removeChannel}}
+                @startChat={{this.startChat}}
+                @close={{this.closeInbox}}
+            />
+        </Overlay>
+    {{/if}}
+
+    {{#if this.isComposeOpen}}
+        <Overlay
+            @isOpen={{this.isComposeOpen}}
+            @position="right"
+            @width={{this.composeWidth}}
+            @fullHeight={{true}}
+            @noBackdrop={{true}}
+            @overlayClass="chat-compose-overlay {{if this.isInboxOpen 'has-inbox'}}"
+            @containerClass="chat-compose-overlay-container"
+            @onClose={{this.closeCompose}}
+        >
+            <ChatTray::ComposePanel
+                @users={{this.availableUsers}}
+                @hasMore={{this.directoryHasMore}}
+                @loadMore={{this.loadMoreUsers}}
+                @directoryError={{this.directoryError}}
+                @retryUsers={{this.retryUsers}}
+                @selectedUsers={{this.selectedUsers}}
+                @searchQuery={{this.contactSearchQuery}}
+                @channelName={{this.newChatName}}
+                @isLoading={{not this.loadAvailableUsers.isIdle}}
+                @isSaving={{not this.createChat.isIdle}}
+                @canCreate={{this.canCreateChat}}
+                @setSearchQuery={{this.setContactSearchQuery}}
+                @setChannelName={{this.setNewChatName}}
+                @toggleUser={{this.toggleSelectedUser}}
+                @removeSelectedUser={{this.removeSelectedUser}}
+                @create={{perform this.createChat}}
+                @close={{this.closeCompose}}
+            />
+        </Overlay>
+    {{/if}}
+</div>

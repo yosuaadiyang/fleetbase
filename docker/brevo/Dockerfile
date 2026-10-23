@@ -117,3 +117,14 @@ RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Traits/HasApiControllerB
 RUN echo '2eefd7572d28a5bcb0e6c1cd5b03f8579388f99326eecbc15a60c7ae184f8ed2  /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Observers/VehicleObserver.php' | sha256sum --check
 COPY docker/crud/VehicleObserver.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Observers/VehicleObserver.php
 RUN php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Observers/VehicleObserver.php
+
+# Bounded web chat feed and participant directory; reject upstream drift.
+RUN echo '8cdb108de5f349ac424eb1fbedadc732ddcd3fa5a6f67451bb3d8acfbbfee754  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/ChatChannelController.php' | sha256sum --check
+RUN echo '1653523c9d35f950bf0b94d1ced99931257e4468cd3f9369ce3c17425820398a  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Resources/ChatChannel.php' | sha256sum --check
+RUN echo 'f9949169e311403e529b26851a42ef7859982b55b33709e81dd643d50270ff17  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Resources/ChatMessage.php' | sha256sum --check
+RUN echo 'ea34e1f39005f52e95dc97d2cb126bb56232721448400b0a23abc15897221913  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Resources/ChatAttachment.php' | sha256sum --check
+RUN echo '1704ce469d04f7b11891b60bbd7bfb66158045c7eefc724542bf55f126732155  /fleetbase/api/vendor/fleetbase/core-api/src/Models/ChatChannel.php' | sha256sum --check
+RUN echo '9ffe66abf54d921cdcff7cc1e176d4d11ef780f20dd4852ef2bf41e38bef569d  /fleetbase/api/vendor/fleetbase/core-api/src/routes.php' | sha256sum --check
+COPY docker/chat/core/ /fleetbase/api/vendor/fleetbase/core-api/src/
+RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Support/ChatFeedPagination.php \
+    && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/ChatChannelController.php

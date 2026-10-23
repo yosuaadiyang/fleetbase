@@ -51,6 +51,7 @@ final class InternalChatAccess
             if ($request->has('limit') && (!is_scalar($request->input('limit')) || !preg_match('/^[1-9][0-9]{0,2}$/D', (string) $request->input('limit')) || (int) $request->input('limit') > 100)) return self::invalid();
             return null; // Mandatory room SQL scope is added by the controller trait.
         }
+        if ($action === 'getFeed') return self::room($request->route()->parameter('channelId'), $company, $user) ? null : self::denied();
         if ($action === 'getAvailableParticipants') {
             $channel = $request->input('channel');
             if ($channel !== null && !self::room($channel, $company, $user)) return self::denied();
@@ -59,7 +60,14 @@ final class InternalChatAccess
             $people = User::where('status', 'active')->where('uuid', '!=', $user->uuid)->whereHas('companyUsers', fn ($q) => $q->where('company_uuid', $company)->where('status', 'active'));
             if ($search) $people->where('name', 'like', '%' . $search . '%');
             if ($channel !== null) $people->whereNotIn('uuid', self::room($channel, $company, $user)->participants()->pluck('user_uuid'));
-            return \Fleetbase\Http\Resources\User::collection($people->orderBy('name')->orderBy('uuid')->limit(25)->get());
+            $scope = 'members:web:' . hash('sha256', $company . ':' . ($channel ?? '') . ':' . ($search ?? ''));
+            try { $page = ChatPagination::options($request, $scope, 25); }
+            catch (\InvalidArgumentException $error) { return self::invalid(); }
+            $rows = ChatPagination::apply($people, $page, 'name', false)->limit($page['limit'] + 1)->get();
+            $more = $rows->count() > $page['limit']; $rows = $rows->take($page['limit']); $last = $rows->last();
+            return self::reply(['users' => \Fleetbase\Http\Resources\User::collection($rows), 'meta' => [
+                'has_more' => $more, 'next_cursor' => $more && $last ? ChatPagination::cursor($scope, $last->name, $last->public_id) : null,
+            ]]);
         }
         if ($action === 'getUnreadCount') {
             $rooms = ChatChannel::withoutCache()->where('company_uuid', $company)->whereHas('participants', fn ($q) => $q->where('company_uuid', $company)->where('user_uuid', $user->uuid))->get();

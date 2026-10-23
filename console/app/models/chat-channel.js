@@ -1,9 +1,11 @@
 import Model, { attr, hasMany, belongsTo } from '@ember-data/model';
+import { tracked } from '@glimmer/tracking';
 import { computed } from '@ember/object';
 import { getOwner } from '@ember/application';
 import { format as formatDate, formatDistanceToNow, isValid as isValidDate } from 'date-fns';
 
 export default class ChatChannelModel extends Model {
+    @tracked preserve_feed_window = false;
     /** @ids */
     @attr('string') public_id;
     @attr('string') company_uuid;
@@ -15,6 +17,8 @@ export default class ChatChannelModel extends Model {
     @attr('number') unread_count;
     @attr('string') slug;
     @attr('array') feed;
+    @attr('boolean') feed_has_more;
+    @attr('string') feed_next_cursor;
     @attr('array') meta;
 
     /** @relationships */
@@ -78,10 +82,10 @@ export default class ChatChannelModel extends Model {
     }
 
     existsInFeed(type, record) {
-        return this.feed.find((_) => _.type === type && _.record.id === record.id) !== undefined;
+        return (this.feed ?? []).find((_) => _.type === type && _.record.id === record.id) !== undefined;
     }
 
     doesntExistsInFeed(type, record) {
-        return this.feed.find((_) => _.type === type && _.record.id === record.id) === undefined;
+        return (this.feed ?? []).find((_) => _.type === type && _.record.id === record.id) === undefined;
     }
 }

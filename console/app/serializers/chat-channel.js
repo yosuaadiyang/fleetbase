@@ -2,6 +2,7 @@ import ApplicationSerializer from '@fleetbase/ember-core/serializers/application
 import { EmbeddedRecordsMixin } from '@ember-data/serializer/rest';
 import { getOwner } from '@ember/application';
 import { isArray } from '@ember/array';
+import { mergeChatFeed } from '../utils/merge-chat-feed';
 
 export default class ChatChannelSerializer extends ApplicationSerializer.extend(EmbeddedRecordsMixin) {
     /**
@@ -27,7 +28,14 @@ export default class ChatChannelSerializer extends ApplicationSerializer.extend(
 
     normalize(typeClass, hash) {
         if (isArray(hash.feed)) {
+            const store = getOwner(this).lookup('service:store');
+            const existing = store.peekRecord('chat-channel', hash.uuid ?? hash.id);
             hash.feed = this.serializeFeed(hash.feed);
+            if (existing?.preserve_feed_window) {
+                hash.feed = mergeChatFeed(existing.feed, hash.feed);
+                hash.feed_has_more = existing.feed_has_more;
+                hash.feed_next_cursor = existing.feed_next_cursor;
+            }
         }
 
         return super.normalize(...arguments);

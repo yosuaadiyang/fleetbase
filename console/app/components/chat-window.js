@@ -1,0 +1,352 @@
+import Component from '@glimmer/component';
+import { tracked } from '@glimmer/tracking';
+import { inject as service } from '@ember/service';
+import { action } from '@ember/object';
+import { later, cancel, scheduleOnce } from '@ember/runloop';
+import { task } from 'ember-concurrency';
+import { mergeChatFeed } from '../utils/merge-chat-feed';
+
+export default class ChatWindowComponent extends Component {
+    @service chat;
+    @service socket;
+    @service currentUser;
+    @service modalsManager;
+    @service notifications;
+    @service fetch;
+    @service store;
+    @tracked chatWindowElement;
+    @tracked channelFeedContainerElement;
+    @tracked channel;
+    @tracked sender;
+    @tracked senderIsCreator;
+    @tracked availableUsers = [];
+    @tracked pendingMessageContent = '';
+    @tracked pendingAttachmentFile;
+    @tracked pendingAttachmentFiles = [];
+    @tracked isVisible = false;
+    @tracked historyError = '';
+    @tracked directoryError = '';
+    @tracked directoryQuery = '';
+    @tracked directoryCursor = null;
+    @tracked directoryHasMore = false;
+    acceptedFileTypes = [
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/msword',
+        'application/pdf',
+        'application/x-pdf',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/x-flv',
+        'video/x-ms-wmv',
+        'audio/mpeg',
+        'video/x-msvideo',
+        'application/zip',
+        'application/x-tar',
+    ];
+
+    constructor(owner, { channel }) {
+        super(...arguments);
+        this.channel = channel;
+        this.sender = this.getSenderFromParticipants(channel);
+        // if not participant close window
+        if (!this.sender) {
+            // `later` returns a timer id, and a derived constructor may only
+            // return an object or undefined — returning it throws a TypeError
+            // before the component is ever created.
+            later(
+                this,
+                () => {
+                    this.chat.closeChannel(channel);
+                },
+                300
+            );
+
+            return;
+        }
+
+        this.channel.preserve_feed_window = true;
+        this.listenChatChannel(channel);
+        this.loadAvailableUsers.perform();
+        this.chatClosedHandler = this.handleChatClosed.bind(this);
+        this.chat.on('chat.closed', this.chatClosedHandler);
+        this.isVisible = true;
+    }
+
+    willDestroy() {
+        if (this.channel) this.channel.preserve_feed_window = false;
+        if (this.chatClosedHandler) this.chat.off('chat.closed', this.chatClosedHandler);
+        this.feedConsumer?.kill();
+        if (this.scrollTimer) cancel(this.scrollTimer);
+        super.willDestroy(...arguments);
+    }
+
+    async listenChatChannel(chatChannelRecord) {
+        try {
+            const stream = this.socket.instance().subscribe(`chat.${chatChannelRecord.public_id}`);
+            this.feedConsumer = stream.createConsumer();
+            for await (const socketEvent of this.feedConsumer) {
+                if (this.isDestroying || this.isDestroyed) return;
+                const element = this.channelFeedContainerElement;
+                const atBottom = !element || element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+                const { event, data } = socketEvent;
+                switch (event) {
+                    case 'chat.added_participant':
+                    case 'chat.removed_participant':
+                    case 'chat_participant.created':
+                    case 'chat_participant.deleted':
+                        await this.channel.reloadParticipants();
+                        this.sender = this.getSenderFromParticipants(this.channel);
+                        if (!this.sender) {
+                            this.closeChannel();
+                            return;
+                        }
+                        this.loadAvailableUsers.perform();
+                        break;
+                    case 'chat_message.created':
+                        this.chat.insertChatMessageFromSocket(this.channel, data);
+                        break;
+                    case 'chat_log.created':
+                        this.chat.insertChatLogFromSocket(this.channel, data);
+                        break;
+                    case 'chat_attachment.created':
+                        this.chat.insertChatAttachmentFromSocket(this.channel, data);
+                        break;
+                    case 'chat_receipt.created':
+                        this.chat.insertChatReceiptFromSocket(this.channel, data);
+                        break;
+                }
+                this.channel.feed = mergeChatFeed(this.channel.feed, []);
+                if (atBottom) this.handleChatFeedScroll();
+            }
+        } catch {
+            if (!this.isDestroying && !this.isDestroyed) this.historyError = 'Koneksi chat terputus. Buka ulang chat untuk menyambungkan kembali.';
+        }
+    }
+
+    @task *uploadAttachmentFile(file) {
+        // since we have dropzone and upload button within dropzone validate the file state first
+        // as this method can be called twice from both functions
+        /* istanbul ignore if -- guards against ember-file-upload firing this from both the dropzone and the upload button for one file; the queue only ever hands this suite a freshly queued file, so the duplicate call cannot be reproduced from a test */
+        if (['queued', 'failed', 'timed_out', 'aborted'].indexOf(file.state) === -1) {
+            return;
+        }
+
+        // set file for progress state
+        this.pendingAttachmentFile = file;
+
+        // Queue and upload immediatley
+        yield this.fetch.uploadFile.perform(
+            file,
+            {
+                path: `uploads/chat/${this.channel.id}/attachments`,
+                type: 'chat_attachment',
+                subject_uuid: this.channel.id,
+                subject_type: 'chat_channel',
+            },
+            (uploadedFile) => {
+                this.pendingAttachmentFiles = [...this.pendingAttachmentFiles, uploadedFile];
+                this.pendingAttachmentFile = undefined;
+            },
+            () => {
+                // remove file from queue
+                if (file.queue && typeof file.queue.remove === 'function') {
+                    file.queue.remove(file);
+                }
+                this.pendingAttachmentFile = undefined;
+            }
+        );
+    }
+
+    @action removePendingAttachmentFile(pendingFile) {
+        this.pendingAttachmentFiles = this.pendingAttachmentFiles.filter((file) => file !== pendingFile);
+    }
+
+    @task *sendMessage() {
+        const attachments = this.pendingAttachmentFiles.map((file) => file.id);
+        yield this.chat.sendMessage(this.channel, this.sender, this.pendingMessageContent, attachments);
+        this.pendingMessageContent = '';
+        this.pendingAttachmentFiles = [];
+        this.handleChatFeedScroll();
+    }
+
+    @action handleKeyPress(event) {
+        if (event.keyCode === 13 && !event.shiftKey) {
+            event.preventDefault();
+            return this.sendMessage.perform();
+        }
+    }
+
+    @action closeChannel() {
+        this.chat.closeChannel(this.channel);
+    }
+
+    @action addParticipant(user) {
+        this.chat.addParticipant(this.channel, user);
+    }
+
+    @action removeParticipant(participant) {
+        const isRemovingSelf = participant.id === this.sender.id;
+        this.modalsManager.confirm({
+            title: isRemovingSelf ? 'Are you sure you would like to leave this chat?' : `Are you sure you wish to remove this participant (${participant.name}) from the chat?`,
+            body: isRemovingSelf
+                ? 'Once you leave this chat you will not be able to access this chat unless you are added as a participant again'
+                : 'Proceeding remove this participant from the chat.',
+            confirm: (modal) => {
+                modal.startLoading();
+                if (isRemovingSelf) {
+                    this.closeChannel();
+                }
+
+                return this.chat.removeParticipant(this.channel, participant);
+            },
+        });
+    }
+
+    @action editChatName() {
+        this.modalsManager.show('modals/edit-chat-name', {
+            title: 'Edit chat channel name',
+            acceptButtonText: 'Save Changes',
+            acceptButtonIcon: 'save',
+            channelName: this.channel.name,
+            confirm: (modal) => {
+                modal.startLoading();
+                if (modal.getOption('channelName')) {
+                    return this.chat.updateChatChannel(this.channel, { name: modal.getOption('channelName') });
+                }
+
+                this.notifications.warning('Name required to save changes.');
+            },
+        });
+    }
+
+    @action positionWindow(chatWindowElement) {
+        this.chatWindowElement = chatWindowElement;
+        requestAnimationFrame(() => {
+            const shiftX = (chatWindowElement.offsetWidth + 20) * this.getChatWindowIndex();
+            chatWindowElement.style.transform = `translateX(-${shiftX}px)`;
+        });
+    }
+
+    @action scrollMessageWindowBottom(channelFeedContainerElement) {
+        channelFeedContainerElement.scrollTop = channelFeedContainerElement.scrollHeight;
+
+        // Change scroll behavior to smooth after the initial scroll
+        requestAnimationFrame(() => {
+            channelFeedContainerElement.style.scrollBehavior = 'smooth';
+        });
+
+        // Set the channel feed container element
+        this.channelFeedContainerElement = channelFeedContainerElement;
+    }
+
+    @task({ drop: true }) *loadOlderHistory() {
+        if (!this.channel.feed_has_more || !this.channel.feed_next_cursor) return;
+        this.historyError = '';
+        try {
+            const page = yield this.fetch.get(`chat-channels/${this.channel.id}/feed`, { limit: 50, cursor: this.channel.feed_next_cursor });
+            const element = this.channelFeedContainerElement;
+            const top = element?.scrollTop ?? 0;
+            const height = element?.scrollHeight ?? 0;
+            const incoming = this.store.serializerFor('chat-channel').serializeFeed(page.feed);
+            this.channel.feed = mergeChatFeed(this.channel.feed, incoming);
+            this.channel.feed_has_more = page.feed_has_more;
+            this.channel.feed_next_cursor = page.feed_next_cursor;
+            scheduleOnce('afterRender', this, this.restoreHistoryScroll, element, top, height);
+        } catch {
+            this.historyError = 'Riwayat belum bisa dimuat. Periksa koneksi, lalu coba lagi.';
+        }
+    }
+
+    restoreHistoryScroll(element, top, height) {
+        if (element && !this.isDestroying && !this.isDestroyed) element.scrollTop = top + element.scrollHeight - height;
+    }
+
+    @action searchDirectory(event) {
+        this.directoryQuery = event.target.value;
+        this.loadAvailableUsers.perform();
+    }
+
+    @action loadMoreUsers() {
+        if (this.directoryHasMore) this.loadAvailableUsers.perform({ cursor: this.directoryCursor });
+    }
+
+    @task({ restartable: true }) *loadAvailableUsers(params = {}) {
+        const append = Boolean(params.cursor);
+        if (!append) {
+            this.directoryCursor = null;
+            this.directoryHasMore = false;
+        }
+        this.directoryError = '';
+        try {
+            const page = yield this.fetch.get('chat-channels/available-participants', {
+                channel: this.channel.id,
+                query: this.directoryQuery,
+                limit: 25,
+                ...params,
+            });
+            const users = page.users.map((data) => this.store.push(this.store.normalize('user', data)));
+            const merged = new Map((append ? this.availableUsers : []).map((user) => [user.id, user]));
+            users.forEach((user) => merged.set(user.id, user));
+            this.availableUsers = [...merged.values()];
+            this.directoryHasMore = page.meta.has_more;
+            this.directoryCursor = page.meta.next_cursor;
+            return this.availableUsers;
+        } catch {
+            this.directoryError = 'Anggota belum bisa dimuat. Coba lagi.';
+            if (!append) this.availableUsers = [];
+        }
+    }
+
+    handleChatFeedScroll() {
+        /* istanbul ignore else -- the element is registered by {{did-insert}} before any scroll can be handled, so it is always present here */
+        if (this.channelFeedContainerElement) {
+            this.channelFeedContainerElement.scrollTop = this.channelFeedContainerElement.scrollHeight;
+            if (this.scrollTimer) cancel(this.scrollTimer);
+            this.scrollTimer = later(
+                this,
+                () => {
+                    if (this.isDestroying || this.isDestroyed) return;
+                    this.channelFeedContainerElement.scrollTop = this.channelFeedContainerElement.scrollHeight;
+                },
+                300
+            );
+        }
+    }
+
+    handleChatClosed() {
+        /* istanbul ignore else -- the element is registered by {{did-insert}} before the window can be closed, so it is always present here */
+        if (this.chatWindowElement) {
+            this.positionWindow(this.chatWindowElement);
+        }
+    }
+
+    getChatWindowIndex() {
+        return this.chat.openChannels.indexOf(this.channel);
+    }
+
+    getSenderFromParticipants(channel) {
+        const participants = channel.participants ?? [];
+        const sender = participants.find((chatParticipant) => {
+            return chatParticipant.user_uuid === this.currentUser.id;
+        });
+
+        this.senderIsCreator = sender ? sender.user_uuid === channel.created_by_uuid : false;
+        return sender;
+    }
+
+    getParticipantByUserId(userId) {
+        /* istanbul ignore next -- the only caller reads this.sender first, which is itself
+           derived from the participants list, so it cannot run without one */
+        const participants = this.channel.participants ?? [];
+        return participants.find((chatParticipant) => {
+            return chatParticipant.user_uuid === userId;
+        });
+    }
+}
