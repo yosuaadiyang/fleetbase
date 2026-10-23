@@ -263,3 +263,13 @@ body[data-theme='dark'] .oauth-provider-google .oauth-provider-logo-google svg {
     width: 14px;
     height: 14px;
 }
+
+/* Mobile navigation normally sits above the workspace. While a chat overlay
+ * is open, keep it below chat (800+) so it cannot cover form fields or actions.
+ * Modal dialogs retain their existing higher layer, including confirmations.
+ */
+@media (max-width: 767px) {
+    body.fleetbase-console:has(.chat-inbox-overlay.is-open, .chat-compose-overlay.is-open, .chat-window-container) :is(.next-sidebar, .next-mobile-navbar) {
+        z-index: 799;
+    }
+}
