@@ -36,7 +36,7 @@
                         </div>
                     </div>
                 </DropdownButton>
-                <button type="button" class="chat-window-button chat-window-close-button" {{on "click" this.closeChannel}}>
+                <button type="button" class="chat-window-button chat-window-close-button" aria-label="Close chat" {{on "click" this.closeChannel}}>
                     <FaIcon @icon="times" @size="sm" />
                 </button>
             </div>

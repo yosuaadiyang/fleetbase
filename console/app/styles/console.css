@@ -272,4 +272,20 @@ body[data-theme='dark'] .oauth-provider-google .oauth-provider-logo-google svg {
     body.fleetbase-console:has(.chat-inbox-overlay.is-open, .chat-compose-overlay.is-open, .chat-window-container) :is(.next-sidebar, .next-mobile-navbar) {
         z-index: 799;
     }
+
+    body.fleetbase-console .chat-container.is-mobile {
+        right: 8px;
+        bottom: 72px;
+        margin-right: 0;
+    }
+
+    body.fleetbase-console .chat-container.is-mobile .chat-window-container {
+        width: min(360px, calc(100vw - 16px));
+        height: min(483px, calc(100vh - 80px));
+        height: min(483px, calc(100dvh - 80px));
+        min-height: 0;
+        max-height: calc(100vh - 80px);
+        max-height: calc(100dvh - 80px);
+        margin-bottom: 0;
+    }
 }
