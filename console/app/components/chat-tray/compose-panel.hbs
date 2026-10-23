@@ -52,7 +52,7 @@
                     <FaIcon @icon="user-plus" />
                 </div>
                 <h3>No contacts found</h3>
-                <p>Try a different name, email, or phone number.</p>
+                <p>Try a different name.</p>
             </div>
         {{/if}}
         {{#if @hasMore}}
@@ -62,6 +62,6 @@
 
     <footer class="chat-compose-footer">
         <Button @type="default" @text="Cancel" @size="sm" @onClick={{@close}} />
-        <Button @type="primary" @icon="paper-plane" @text="Create Chat" @size="sm" @onClick={{@create}} @disabled={{not @canCreate}} @isLoading={{@isSaving}} />
+        <Button @type="primary" @icon="paper-plane" @text="Create Chat" @size="sm" @onClick={{@create}} @disabled={{not @canCreate}} @isLoading={{@isSaving}} data-test-create-chat />
     </footer>
 </section>
