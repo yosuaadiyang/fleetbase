@@ -25,6 +25,7 @@ export default class ChatWindowComponent extends Component {
     @tracked pendingAttachmentFiles = [];
     @tracked isVisible = false;
     @tracked historyError = '';
+    @tracked sendError = '';
     @tracked directoryError = '';
     @tracked directoryQuery = '';
     @tracked directoryCursor = null;
@@ -168,12 +169,19 @@ export default class ChatWindowComponent extends Component {
         this.pendingAttachmentFiles = this.pendingAttachmentFiles.filter((file) => file !== pendingFile);
     }
 
-    @task *sendMessage() {
+    @task({ drop: true }) *sendMessage() {
+        if (this.sendError || !this.pendingMessageContent?.trim()) return;
+        this.sendError = '';
+        const content = this.pendingMessageContent;
         const attachments = this.pendingAttachmentFiles.map((file) => file.id);
-        yield this.chat.sendMessage(this.channel, this.sender, this.pendingMessageContent, attachments);
-        this.pendingMessageContent = '';
-        this.pendingAttachmentFiles = [];
-        this.handleChatFeedScroll();
+        try {
+            yield this.chat.sendMessage(this.channel, this.sender, content, attachments);
+            if (this.pendingMessageContent === content) this.pendingMessageContent = '';
+            this.pendingAttachmentFiles = [];
+            this.handleChatFeedScroll();
+        } catch {
+            this.sendError = 'Status pengiriman belum dapat dipastikan. Buka ulang chat dan periksa pesan sebelum mengirim ulang.';
+        }
     }
 
     @action handleKeyPress(event) {

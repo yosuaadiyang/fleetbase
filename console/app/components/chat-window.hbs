@@ -90,7 +90,8 @@
                 {{/if}}
             </div>
             <div class="chat-window-input-box">
-                <Textarea @value={{this.pendingMessageContent}} {{on "keypress" this.handleKeyPress}} placeholder="Type your message here" class="chat-window-input" rows="3" />
+                {{#if this.sendError}}<p role="alert" data-test-chat-send-error>{{this.sendError}}</p>{{/if}}
+                <Textarea @value={{this.pendingMessageContent}} disabled={{or this.sendMessage.isRunning this.sendError}} {{on "keypress" this.handleKeyPress}} placeholder="Type your message here" class="chat-window-input" rows="3" />
             </div>
             <div class="chat-window-submit-container">
                 <Button
@@ -99,8 +100,9 @@
                     @text="Send"
                     @size="xs"
                     @onClick={{perform this.sendMessage}}
-                    @disabled={{not this.pendingMessageContent}}
-                    @isLoading={{and (not this.sendMessage.isIdle) (not this.uploadAttachmentFile.isIdle)}}
+                    @disabled={{or (not this.pendingMessageContent) this.sendMessage.isRunning this.sendError}}
+                    @isLoading={{this.sendMessage.isRunning}}
+                    data-test-chat-send
                 />
             </div>
         </div>

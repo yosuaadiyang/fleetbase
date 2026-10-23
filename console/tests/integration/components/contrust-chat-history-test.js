@@ -5,7 +5,7 @@ import Evented from '@ember/object/evented';
 import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
 import { setComponentTemplate } from '@ember/component';
-import { render, click, settled, waitUntil, clearRender } from '@ember/test-helpers';
+import { render, click, fillIn, settled, waitUntil, clearRender } from '@ember/test-helpers';
 import { hbs } from 'ember-cli-htmlbars';
 import ChatWindow from '@fleetbase/console/components/chat-window';
 import { captureComponent } from '@fleetbase/console/tests/helpers/capture-component';
@@ -22,10 +22,16 @@ class Channel {
 module('Integration | Component | Contrust chat history', function (hooks) {
     setupRenderingTest(hooks);
     hooks.beforeEach(function () {
+        const state = this;
+        this.sendCalls = [];
         this.owner.register(
             'service:chat',
             class extends Service.extend(Evented) {
                 openChannels = [];
+                sendMessage(...args) {
+                    state.sendCalls.push(args);
+                    return state.sendResponse();
+                }
             }
         );
         this.owner.register(
@@ -63,7 +69,6 @@ module('Integration | Component | Contrust chat history', function (hooks) {
             }
         );
         const requests = (this.requests = []);
-        const state = this;
         this.owner.register(
             'service:fetch',
             class extends Service {
@@ -142,5 +147,35 @@ module('Integration | Component | Contrust chat history', function (hooks) {
         assert.strictEqual(socket.killCount, 1);
         assert.false(chat.has('chat.closed'));
         assert.false(this.channel.preserve_feed_window);
+    });
+    test('pending message send locks controls and drops a second invocation', async function (assert) {
+        let resolve;
+        this.sendResponse = () => new Promise((r) => (resolve = r));
+        await render(hbs`<ChatWindow @channel={{this.channel}} />`);
+        await fillIn('textarea', 'Synthetic message');
+        const first = this.captured.instance.sendMessage.perform();
+        const second = this.captured.instance.sendMessage.perform();
+        second.catch(() => {}); // Dropped task instances reject as cancelled.
+        await waitUntil(() => this.sendCalls.length === 1);
+        assert.dom('[data-test-chat-send]').isDisabled();
+        assert.dom('textarea').isDisabled();
+        resolve({});
+        await first;
+        await settled();
+        assert.strictEqual(this.sendCalls.length, 1);
+        assert.dom('textarea').hasValue('');
+        assert.dom('[data-test-chat-send-error]').doesNotExist();
+    });
+    test('failed send retains draft and prevents blind resubmission until chat is reopened', async function (assert) {
+        this.sendResponse = () => Promise.reject(new Error('Synthetic private transport failure'));
+        await render(hbs`<ChatWindow @channel={{this.channel}} />`);
+        await fillIn('textarea', 'Retained synthetic draft');
+        await click('[data-test-chat-send]');
+        assert.dom('textarea').hasValue('Retained synthetic draft');
+        assert.dom('[data-test-chat-send-error]').includesText('Buka ulang chat');
+        assert.dom('[data-test-chat-send-error]').doesNotIncludeText('Synthetic private transport');
+        assert.dom('[data-test-chat-send]').isDisabled();
+        await this.captured.instance.sendMessage.perform();
+        assert.strictEqual(this.sendCalls.length, 1, 'uncertain send cannot be blindly retried in the same window');
     });
 });

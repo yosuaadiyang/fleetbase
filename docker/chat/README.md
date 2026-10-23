@@ -6,6 +6,8 @@ The resource and direct model accessor return at most50 feed entries by default.
 
 Initial feed metadata is retained by an open web window across list refreshes. Older pages prepend without duplicate socket entries or automatic scrolling away from the reader. The organization directory is separately paged via the existing participant endpoint, tied to organization, room and search. The UI keeps selected participants while paging and cancels stale searches.
 
+Only one message send can be pending per window. The send button and editor lock while it is pending. A failed/uncertain response retains the draft and locks repeat submission until the user reopens the chat and inspects the history; the client never automatically retries a message. This prevents concurrent UI submissions, but does not claim server-side exactly-once delivery.
+
 Legacy optional attachment/message/file references serialize safely. New generic chat attachments remain rejected by InternalChatAccess; the web control explicitly reports that private attachments are not yet available. This change does not provide a private upload/download gateway.
 
 Synthetic HTTP coverage: docker/release-qa/fixtures/web-chat-history-contract.php. Email and broadcast transports are log-only, and the fixture refuses all databases except contrust_release_qa. Its temporary users/history are cleaned only in that synthetic database; it performs no production cleanup or restore.
