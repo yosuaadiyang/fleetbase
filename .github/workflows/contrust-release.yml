@@ -70,7 +70,7 @@ jobs:
       API_HOST: https://api.contrust.website
       API_SECURE: true
       OSRM_HOST: https://api.contrust.website/routing
-      SOURCE_CODE_URL: https://contrust.website/source/contrust-audit-20261013.tar.gz
+      SOURCE_CODE_URL: https://github.com/${{ github.repository }}/tree/${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

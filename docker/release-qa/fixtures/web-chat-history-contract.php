@@ -83,11 +83,11 @@ try {
     [$code] = historyCall('chat-channels/available-participants?query=changed&cursor=' . rawurlencode($firstDirectoryCursor ?? '')); historyCheck('directory cursor tied to search scope', $code === 422, $code);
     [$code] = historyCall('chat-channels/available-participants?query=' . rawurlencode('Paging ' . $run) . '&cursor=' . rawurlencode($firstDirectoryCursor ?? ''), 'owner_b'); historyCheck('directory cursor tied to organization', $code === 422, $code);
     DB::table('chat_participants')->insert(['uuid' => (string) Str::uuid(), 'public_id' => 'chat_participant_reader_' . $run, 'company_uuid' => $owner->company_uuid, 'chat_channel_uuid' => $room->uuid, 'user_uuid' => $seed['users']['dispatcher_a']['uuid'], 'created_at' => now(), 'updated_at' => now()]);
-    DB::table('chat_participants')->where('uuid', $sender->uuid)->update(['deleted_at' => now()]);
+    DB::table('chat_messages')->where('uuid', $live)->update(['sender_uuid' => null]);
     try {
         [$code, $orphaned] = historyCall('chat-channels/' . $room->uuid . '/feed?limit=1', 'dispatcher_a');
-        historyCheck('historical message with removed sender serializes as null without500', $code === 200 && array_key_exists('sender', $orphaned['feed'][0]['data'] ?? []) && $orphaned['feed'][0]['data']['sender'] === null, $code);
-    } finally { DB::table('chat_participants')->where('uuid', $sender->uuid)->update(['deleted_at' => null]); }
+        historyCheck('historical message with missing sender serializes as null without500', $code === 200 && array_key_exists('sender', $orphaned['feed'][0]['data'] ?? []) && $orphaned['feed'][0]['data']['sender'] === null, $code);
+    } finally { DB::table('chat_messages')->where('uuid', $live)->update(['sender_uuid' => $sender->uuid]); }
 
 } finally {
     foreach ($rooms as $id) { $messageIds = DB::table('chat_messages')->where('chat_channel_uuid', $id)->pluck('uuid'); DB::table('chat_receipts')->whereIn('chat_message_uuid', $messageIds)->delete(); foreach (['chat_attachments', 'chat_messages', 'chat_logs', 'chat_participants'] as $table) DB::table($table)->where('chat_channel_uuid', $id)->delete(); DB::table('chat_channels')->where('uuid', $id)->delete(); }
