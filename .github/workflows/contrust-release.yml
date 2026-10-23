@@ -30,7 +30,7 @@ jobs:
           sudo swapon /mnt/contrust-build.swap
           free -m
       - name: Build the patched release candidate (no optional secrets)
-        run: docker build -f docker/brevo/Dockerfile -t contrust-api:release-qa .
+        run: bash scripts/release/build-ci-api.sh
       - name: Release unused build cache before integration infrastructure
         run: |
           docker builder prune --all --force
