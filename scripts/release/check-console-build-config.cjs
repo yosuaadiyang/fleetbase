@@ -9,6 +9,7 @@ const { parseSync } = consoleRequire('@babel/core');
 function fail(message) { throw new Error(message); }
 function property(node, name) {
     if (!node || node.type !== 'ObjectExpression') fail('Expected static configuration object');
+    if (node.properties.some(p => p.type !== 'ObjectProperty' || p.computed)) fail('Dynamic configuration object');
     const values = node.properties.filter(p => p.type === 'ObjectProperty' && !p.computed && (p.key.name ?? p.key.value) === name);
     if (values.length !== 1) fail('Missing or ambiguous configuration field: ' + name);
     return values[0].value;
@@ -54,7 +55,12 @@ try {
     if (literal(property(config, 'modulePrefix')) !== '@fleetbase/console') fail('Unexpected application');
     for (const [section, fields] of Object.entries(expected)) {
         const object = property(config, section);
-        for (const [key, value] of Object.entries(fields)) if (literal(property(object, key)) !== value) fail('Unexpected production field: ' + section + '.' + key);
+        for (const [key, value] of Object.entries(fields)) {
+            const actual = literal(property(object, key));
+            // getenv preserves the string representation of an explicit port.
+            const matches = section === 'socket' && key === 'port' ? actual === value || actual === String(value) : actual === value;
+            if (!matches) fail('Unexpected production field: ' + section + '.' + key);
+        }
     }
     const source = process.env.SOURCE_CODE_URL;
     if (!source || !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/tree\/[a-f0-9]{40}$/.test(source)) fail('Exact commit source URL required');
