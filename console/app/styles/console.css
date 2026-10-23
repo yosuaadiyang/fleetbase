@@ -4,6 +4,13 @@
     color: rgb(202 138 4);
 }
 
+/* Inbox (420px) and compose (360px) must also fit the 768px tablet edge. */
+@media (min-width: 768px) {
+    body.fleetbase-console .chat-compose-overlay.has-inbox > .next-content-overlay-panel-container {
+        max-width: calc(100vw - 420px);
+    }
+}
+
 .btn.btn-warning-alert.btn-warning,
 .two-fa-enforcement-alert button#two-fa-setup-button.btn.btn-warning body[data-theme='dark'] .btn.btn-warning-alert.btn-warning,
 body[data-theme='dark'] .two-fa-enforcement-alert button#two-fa-setup-button.btn.btn-warning {
