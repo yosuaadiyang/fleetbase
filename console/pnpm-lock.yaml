@@ -37,7 +37,7 @@ patchedDependencies:
   '@fleetbase/ember-core@0.3.25': 02161bc751d37b11f4ba6e0daafa08bbee34951a27d62cdf8940c620dd19c6de
   '@fleetbase/ember-ui@0.4.5': 795aea2dd71613cef660389822fbe4378d1c072a88590d8740611b589533d164
   '@fleetbase/fleetops-data@0.2.2': ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca
-  '@fleetbase/fleetops-engine@0.6.71': 3803595040e0b9692de96c6589b9f20c521099c4e12e673e27f6469b20b81c33
+  '@fleetbase/fleetops-engine@0.6.71': 456155bb23f33fca2fc760bfe64a01b50db9ff73f69dde72c17fa5445a7c45b0
   '@tiptap/core@2.27.2': 39ca3a8b99fda6a2681c538f3d2c18350ab4625c9ed35e5823900ce6a3ef27c3
   braces@3.0.3: 102b200acd9065a1356f4e1a06088dc3eb404a2589a0ccdee6d16ea278d94d3b
   ember-fetch@8.1.2: 9f3d87e971b6d99abcfe4dabb483543f71de325880ddee87c17e88392f9d4029
@@ -70,7 +70,7 @@ importers:
         version: 0.2.2(patch_hash=ebdc4101532840e1726a8e358fbff1f631606a1f3409adad8fbb2a4426f15eca)(@ember/string@3.1.1)(@ember/test-helpers@3.3.1(@babel/core@7.29.7)(ember-source@5.4.1(@babel/core@7.29.7)(@glimmer/component@1.1.2(@babel/core@7.29.7))(rsvp@4.8.5)(webpack@5.109.2(postcss@8.5.23)))(webpack@5.109.2(postcss@8.5.23)))(ember-resolver@11.0.1(ember-source@5.4.1(@babel/core@7.29.7)(@glimmer/component@1.1.2(@babel/core@7.29.7))(rsvp@4.8.5)(webpack@5.109.2(postcss@8.5.23))))(ember-source@5.4.1(@babel/core@7.29.7)(@glimmer/component@1.1.2(@babel/core@7.29.7))(rsvp@4.8.5)(webpack@5.109.2(postcss@8.5.23)))(eslint@8.57.1)(webpack@5.109.2(postcss@8.5.23))
       '@fleetbase/fleetops-engine':
         specifier: ^0.6.71
-        version: 0.6.71(patch_hash=3803595040e0b9692de96c6589b9f20c521099c4e12e673e27f6469b20b81c33)(87f47c646135a885ab7d96e07d4eb241)
+        version: 0.6.71(patch_hash=456155bb23f33fca2fc760bfe64a01b50db9ff73f69dde72c17fa5445a7c45b0)(87f47c646135a885ab7d96e07d4eb241)
       '@fleetbase/iam-engine':
         specifier: ^0.1.13
         version: 0.1.13(87f47c646135a885ab7d96e07d4eb241)
@@ -10528,7 +10528,7 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@fleetbase/fleetops-engine@0.6.71(patch_hash=3803595040e0b9692de96c6589b9f20c521099c4e12e673e27f6469b20b81c33)(87f47c646135a885ab7d96e07d4eb241)':
+  '@fleetbase/fleetops-engine@0.6.71(patch_hash=456155bb23f33fca2fc760bfe64a01b50db9ff73f69dde72c17fa5445a7c45b0)(87f47c646135a885ab7d96e07d4eb241)':
     dependencies:
       '@babel/core': 7.29.7
       '@fleetbase/ember-core': 0.3.25(patch_hash=02161bc751d37b11f4ba6e0daafa08bbee34951a27d62cdf8940c620dd19c6de)(@ember/string@3.1.1)(@ember/test-helpers@3.3.1(@babel/core@7.29.7)(ember-source@5.4.1(@babel/core@7.29.7)(@glimmer/component@1.1.2(@babel/core@7.29.7))(rsvp@4.8.5)(webpack@5.109.2(postcss@8.5.23)))(webpack@5.109.2(postcss@8.5.23)))(ember-resolver@11.0.1(ember-source@5.4.1(@babel/core@7.29.7)(@glimmer/component@1.1.2(@babel/core@7.29.7))(rsvp@4.8.5)(webpack@5.109.2(postcss@8.5.23))))(ember-source@5.4.1(@babel/core@7.29.7)(@glimmer/component@1.1.2(@babel/core@7.29.7))(rsvp@4.8.5)(webpack@5.109.2(postcss@8.5.23)))(eslint@8.57.1)(webpack@5.109.2(postcss@8.5.23))

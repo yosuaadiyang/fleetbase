@@ -94,4 +94,7 @@ jobs:
       - name: Production build
         working-directory: console
         run: pnpm exec ember build --environment production
+      - name: Reject deferred runtime template errors in actual production artifacts
+        working-directory: console
+        run: python3 ../scripts/release/check-frontend-artifacts.py dist
 # No deployment, paid runners, external provider secrets, or artifact storage.
