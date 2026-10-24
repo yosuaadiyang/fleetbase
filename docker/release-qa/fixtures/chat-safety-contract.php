@@ -116,6 +116,53 @@ try {
     safetyCheck('identical retry returns same report without duplicate', $code === 200 && ($duplicate['id'] ?? null) === $reportId && DB::table('contrust_chat_reports')->where('request_id', $report['request_id'])->count() === 1, $code);
     $different = $report; $different['reason'] = 'spam';
     [$code] = safetyCall('POST', $base . '/reports', $different, 'driver_a'); safetyCheck('reusing request ID for changed content returns conflict', $code === 409, $code);
+    // Selected content remains reportable after a legacy author link or account
+    // disappears. The review snapshot must not recover a removed profile.
+    $legacy = $message->replicate(['id', 'uuid', 'public_id']);
+    $legacy->forceFill(['uuid' => (string) Str::uuid(), 'public_id' => 'message_safety_legacy_' . $run,
+        'sender_uuid' => null, 'content' => 'Synthetic legacy content without author'])->saveQuietly();
+    try {
+        $legacyRequest = array_replace($report, ['request_id' => (string) Str::uuid(), 'target' => $legacy->public_id]);
+        [$code, $receipt] = safetyCall('POST', $base . '/reports', $legacyRequest, 'driver_a');
+        safetyCheck('legacy message without sender remains reportable by its room participant', $code === 201, $code);
+        $legacyReport = DB::table('contrust_chat_reports')->where('uuid', $receipt['id'] ?? 'missing')->first();
+        $context = $legacyReport ? json_decode(Crypt::decryptString($legacyReport->encrypted_context), true) : [];
+        safetyCheck('unknown author report retains selected content without a reconstructed profile', $legacyReport && $legacyReport->target_user_uuid === null
+            && ($context['message']['content'] ?? null) === $legacy->content && ($context['target']['name'] ?? null) === 'Former member' && ($context['target']['id'] ?? null) === null);
+        $downGuard = false;
+        try {
+            $migration = require '/fleetbase/api/database/contrust-migrations/2026_10_24_000001_allow_unattributed_chat_content_reports.php';
+            $migration->down();
+        } catch (RuntimeException $expected) { $downGuard = str_contains($expected->getMessage(), 'must be retained'); }
+        safetyCheck('schema downgrade refuses anonymous reports without dropping their data', $downGuard
+            && DB::table('contrust_chat_reports')->where('request_id', $legacyRequest['request_id'])->exists());
+    } finally { DB::table('chat_messages')->where('uuid', $legacy->uuid)->delete(); }
+    $oldDeletedAt = DB::table('users')->where('uuid', $owner->uuid)->value('deleted_at');
+    try {
+        DB::table('users')->where('uuid', $owner->uuid)->update(['deleted_at' => now()]);
+        $removedRequest = array_replace($report, ['request_id' => (string) Str::uuid()]);
+        [$code, $receipt] = safetyCall('POST', $base . '/reports', $removedRequest, 'driver_a');
+        safetyCheck('selected message remains reportable after author account soft deletion', $code === 201, $code);
+        $removedReport = DB::table('contrust_chat_reports')->where('uuid', $receipt['id'] ?? 'missing')->first();
+        $context = $removedReport ? json_decode(Crypt::decryptString($removedReport->encrypted_context), true) : [];
+        safetyCheck('deleted author profile is not reintroduced into the report snapshot', $removedReport
+            && ($context['target']['id'] ?? null) === null && ($context['target']['name'] ?? null) === 'Former member');
+    } finally { DB::table('users')->where('uuid', $owner->uuid)->update(['deleted_at' => $oldDeletedAt]); }
+    $authorMembership = CompanyUser::where('company_uuid', $owner->company_uuid)->where('user_uuid', $owner->uuid)->firstOrFail();
+    $oldAuthor = DB::table('users')->where('uuid', $owner->uuid)->first(['name', 'company_uuid']);
+    $oldAuthorStatus = $authorMembership->status;
+    try {
+        $authorMembership->forceFill(['status' => 'inactive'])->saveQuietly();
+        DB::table('users')->where('uuid', $owner->uuid)->update(['name' => 'SYNTHETIC FOREIGN PROFILE', 'company_uuid' => $companyIds[1]]);
+        [$code, $receipt] = safetyCall('POST', $base . '/reports', array_replace($report, ['request_id' => (string) Str::uuid()]), 'driver_a');
+        $revokedReport = DB::table('contrust_chat_reports')->where('uuid', $receipt['id'] ?? 'missing')->first();
+        $context = $revokedReport ? json_decode(Crypt::decryptString($revokedReport->encrypted_context), true) : [];
+        safetyCheck('reportable retained content never expands a revoked author foreign profile', $code === 201
+            && ($context['target']['id'] ?? null) === null && ($context['target']['name'] ?? null) === 'Former member', $code);
+    } finally {
+        DB::table('users')->where('uuid', $owner->uuid)->update(['name' => $oldAuthor->name, 'company_uuid' => $oldAuthor->company_uuid]);
+        $authorMembership->forceFill(['status' => $oldAuthorStatus])->saveQuietly();
+    }
     $userReport = ['request_id' => (string) Str::uuid(), 'type' => 'user', 'target' => $state['users']['driver_a_other']['public_id'], 'reason' => 'spam', 'share_context' => true];
     [$code] = safetyCall('POST', $base . '/reports', $userReport); safetyCheck('active own-organization user may be reported without room access', $code === 201, $code);
     $userReport['request_id'] = (string) Str::uuid(); $userReport['target'] = $state['users']['owner_b']['public_id'];
@@ -139,6 +186,30 @@ try {
     [$code] = safetyCall('POST', $base . '/blocks', $block, 'driver_a'); safetyCheck('repeated block stays one row', $code === 200 && DB::table('contrust_chat_blocks')->where('user_uuid', $state['users']['driver_a']['uuid'])->count() === 1, $code);
     [$code, $status] = safetyCall('GET', $base, null, 'driver_a'); safetyCheck('server read retains own block and explains group boundary', $code === 200 && ($status['blocked_users'][0]['id'] ?? null) === $owner->public_id && ($status['shared_groups_remain_visible'] ?? null) === true, $code);
     [$code, $status] = safetyCall('GET', $base); safetyCheck('target cannot read who blocked them in status', $code === 200 && ($status['blocked_users'] ?? null) === [], $code);
+    $blockedAuthorMembership = CompanyUser::where('company_uuid', $owner->company_uuid)->where('user_uuid', $owner->uuid)->firstOrFail();
+    $blockedOld = DB::table('users')->where('uuid', $owner->uuid)->first(['name', 'company_uuid', 'deleted_at']);
+    $blockedOldStatus = $blockedAuthorMembership->status;
+    try {
+        $blockedAuthorMembership->forceFill(['status' => 'inactive'])->saveQuietly();
+        DB::table('users')->where('uuid', $owner->uuid)->update(['name' => 'SYNTHETIC FOREIGN PROFILE', 'company_uuid' => $companyIds[1]]);
+        [$code, $status] = safetyCall('GET', $base, null, 'driver_a');
+        safetyCheck('own block list retains manageable ID without expanding a departed foreign profile', $code === 200
+            && ($status['blocked_users'][0]['id'] ?? null) === $owner->public_id
+            && ($status['blocked_users'][0]['name'] ?? null) === 'Former member', $code);
+        DB::table('users')->where('uuid', $owner->uuid)->update(['deleted_at' => now()]);
+        [$code, $status] = safetyCall('GET', $base, null, 'driver_a');
+        safetyCheck('soft-deleted blocked account remains anonymously manageable', $code === 200
+            && ($status['blocked_users'][0]['id'] ?? null) === $owner->public_id
+            && ($status['blocked_users'][0]['name'] ?? null) === 'Former member', $code);
+        [$code] = safetyCall('DELETE', $base . '/blocks', $block, 'driver_a');
+        safetyCheck('actor can explicitly remove own block after target account soft deletion', $code === 200
+            && !DB::table('contrust_chat_blocks')->where('user_uuid', $state['users']['driver_a']['uuid'])->where('blocked_user_uuid', $owner->uuid)->exists(), $code);
+    } finally {
+        DB::table('users')->where('uuid', $owner->uuid)->update(['name' => $blockedOld->name, 'company_uuid' => $blockedOld->company_uuid, 'deleted_at' => $blockedOld->deleted_at]);
+        $blockedAuthorMembership->forceFill(['status' => $blockedOldStatus])->saveQuietly();
+    }
+    [$code] = safetyCall('POST', $base . '/blocks', $block, 'driver_a');
+
     [$code] = safetyCall('POST', $base . '/blocks', ['user' => $state['users']['driver_a']['public_id']], 'driver_a'); safetyCheck('self block rejected', $code === 403, $code);
     [$code] = safetyCall('POST', $base . '/blocks', ['user' => $state['users']['owner_b']['public_id']], 'driver_a'); safetyCheck('foreign member block rejected', $code === 403, $code);
     [$code] = safetyCall('POST', 'int/v1/chat-messages', ['chatMessage' => ['chat_channel_uuid' => $room->uuid, 'content' => 'Blocked web send']]); safetyCheck('web sender cannot bypass recipient block', $code === 403, $code);

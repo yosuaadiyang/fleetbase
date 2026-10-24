@@ -60,14 +60,17 @@ final class ChatSafety
         $user = $actor['user']; $company = $actor['company']->uuid;
         $consent = DB::table('contrust_chat_consents')->where('company_uuid', $company)->where('user_uuid', $user->uuid)->first();
         $blockedIds = DB::table('contrust_chat_blocks')->where('company_uuid', $company)->where('user_uuid', $user->uuid)->select('blocked_user_uuid');
-        $query = User::withoutCache()->whereIn('uuid', $blockedIds)->orderBy('public_id');
+        // Stored block IDs remain manageable after departure or soft deletion,
+        // but only fresh active membership can expose a current profile name.
+        $query = User::withoutCache()->withTrashed()->whereIn('uuid', $blockedIds)->orderBy('public_id');
         if ($after !== null) $query->where('public_id', '>', $after);
-        $blocked = $query->limit(101)->get(['public_id', 'name']); $more = $blocked->count() > 100; $blocked = $blocked->take(100);
+        $blocked = $query->limit(101)->get(['uuid', 'public_id']); $more = $blocked->count() > 100; $blocked = $blocked->take(100);
+        $activeNames = OrganizationChat::members($company)->whereIn('uuid', $blocked->pluck('uuid'))->pluck('name', 'uuid');
         return ['enabled' => true, 'policy_version' => self::VERSION, 'policy_url' => 'https://contrust.website/terms',
             'consented' => $consent && $consent->policy_version === self::VERSION,
             'accepted_at' => $consent?->accepted_at,
             'moderator' => self::moderator($actor),
-            'blocked_users' => $blocked->map(fn ($person) => ['id' => $person->public_id, 'name' => $person->name])->all(),
+            'blocked_users' => $blocked->map(fn ($person) => ['id' => $person->public_id, 'name' => $activeNames[$person->uuid] ?? 'Former member'])->all(),
             'blocked_has_more' => $more, 'blocked_next_cursor' => $more ? $blocked->last()->public_id : null,
             'block_scope' => 'direct_messages_and_new_invitations', 'shared_groups_remain_visible' => true];
     }
@@ -88,7 +91,7 @@ final class ChatSafety
         $target = OrganizationChat::members($actor['company']->uuid)->where('public_id', $input['user'])->first();
         // Unblocking a departed member must remain possible without exposing them
         // in the active directory, but may only remove this actor's stored block.
-        if ($remove && !$target) $target = User::withoutCache()->where('public_id', $input['user'])->whereIn('uuid',
+        if ($remove && !$target) $target = User::withoutCache()->withTrashed()->where('public_id', $input['user'])->whereIn('uuid',
             DB::table('contrust_chat_blocks')->where('company_uuid', $actor['company']->uuid)
                 ->where('user_uuid', $actor['user']->uuid)->select('blocked_user_uuid'))->first();
         if (!$target || $target->uuid === $actor['user']->uuid) return self::denied();
@@ -107,22 +110,32 @@ final class ChatSafety
             ->where('request_id', $input['request_id'])->first();
         if ($old) return hash_equals($old->request_hash, $requestHash) ? self::reply(['id' => $old->uuid, 'status' => $old->status])
             : self::reply(['code' => 'CHAT_REPORT_CONFLICT', 'errors' => ['Use a new request ID for a different report.']], 409);
-        $message = null;
+        $message = null; $target = null; $targetUserUuid = null;
         if ($input['type'] === 'message') {
             $message = ChatMessage::withoutCache()->where('company_uuid', $company)->where('public_id', $input['target'])->first();
             $channel = $message ? OrganizationChat::channel($user, $message->chat_channel_uuid) : null;
-            $sender = $channel ? $message->sender : null;
-            $target = $sender && $sender->company_uuid === $company ? User::withoutCache()->where('uuid', $sender->user_uuid)->first() : null;
-        } else $target = OrganizationChat::members($company)->where('public_id', $input['target'])->first();
-        if (!$target || $target->uuid === $user->uuid) return self::denied();
+            if (!$channel) return self::denied();
+            $sender = $message->sender;
+            if ($sender && $sender->company_uuid === $company && is_string($sender->user_uuid) && Str::isUuid($sender->user_uuid)) {
+                $targetUserUuid = $sender->user_uuid;
+                // A selected message is sufficient context. Never resurrect a
+                // deleted/revoked/foreign profile just to attribute its report.
+                $target = OrganizationChat::members($company)->where('uuid', $targetUserUuid)->first();
+            }
+        } else {
+            $target = OrganizationChat::members($company)->where('public_id', $input['target'])->first();
+            if (!$target) return self::denied();
+            $targetUserUuid = $target->uuid;
+        }
+        if ($targetUserUuid === $user->uuid) return self::denied();
         // Only the selected message and explicit form fields are shared. No
         // surrounding feed, attachments, location, email or phone is included.
-        $context = ['type' => $input['type'], 'target' => ['id' => $target->public_id, 'name' => $target->name],
+        $context = ['type' => $input['type'], 'target' => ['id' => $target?->public_id, 'name' => $target?->name ?? 'Former member'],
             'message' => $message ? ['id' => $message->public_id, 'content' => $message->content] : null,
             'details' => trim(strip_tags($input['details'] ?? ''))];
         $id = (string) Str::orderedUuid();
         DB::table('contrust_chat_reports')->insert(['uuid' => $id, 'company_uuid' => $company,
-            'reporter_uuid' => $user->uuid, 'target_user_uuid' => $target->uuid, 'chat_message_uuid' => $message?->uuid,
+            'reporter_uuid' => $user->uuid, 'target_user_uuid' => $targetUserUuid, 'chat_message_uuid' => $message?->uuid,
             'request_id' => $input['request_id'], 'request_hash' => $requestHash, 'reason' => $input['reason'],
             'encrypted_context' => Crypt::encryptString(json_encode($context, JSON_THROW_ON_ERROR)),
             'status' => 'open', 'created_at' => now(), 'updated_at' => now()]);

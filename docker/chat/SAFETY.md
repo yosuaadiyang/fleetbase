@@ -38,6 +38,17 @@ details, encrypted with APP_KEY. It does not copy the surrounding feed, contacts
 attachments or coordinates. Responses disable shared caching. Reports use an
 actor/company/request unique key; changed input with the same key returns 409.
 
+Content reporting remains available when a message has no author link or its
+author has left, become inactive or been deleted. Such snapshots use an anonymous
+author label. They never read a removed member's current foreign-company profile.
+A known historical user UUID is retained only in private association metadata for
+erasure review; an unknown author is nullable. Direct user reports still require
+an active member in the current organization. Downgrading that nullable column is
+refused while anonymous reports exist; no report is deleted for a schema rollback.
+Own block entries remain removable after a target leaves or is soft-deleted,
+using their existing public ID and an anonymous label without exposing their
+current foreign-company profile.
+
 Direct sends and new invitations enforce blocks in both public and web chat.
 Existing shared operational groups remain visible; this limit must be explained
 before blocking. A company row lock spans each safety mutation and actual chat
@@ -56,3 +67,10 @@ inside the isolated QA container to enable the feature without changing the
 default-disabled QA server. CI must validate its structured result, not just exit
 status. Feature-on runtime results, web/native UI, policy review, moderation
 operations and owner activation approval remain separate acceptance gates.
+
+This candidate covers chat messages and chat participants only. It does not
+certify reporting/moderation of order comments, Issue/Fuel text or POD media,
+nor does it implement the full account-erasure lifecycle. Those surfaces need
+their own access, content-policy and operational review before a whole-product
+UGC or Google Play readiness claim. Passing these chat contracts cannot close
+those separate gates.
