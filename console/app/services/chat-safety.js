@@ -14,6 +14,8 @@ export default class ChatSafetyService extends Service {
     @tracked failure = null;
     @tracked checkingMarker = null;
     @tracked busyMarker = null;
+    @tracked selection = null;
+    selectionSerial = 0;
     scopeMemo = null;
     markerMemo = null;
     readFlight = null;
@@ -173,6 +175,27 @@ export default class ChatSafetyService extends Service {
     }
     assertCanContribute() {
         if (!this.canContribute) throw chatSafetyError(this.status?.enabled && !this.status.consented ? 'CHAT_POLICY_REQUIRED' : 'CHAT_SAFETY_UNAVAILABLE');
+    }
+
+    selectReport(target, marker = this.marker) {
+        this.assertCurrent(marker);
+        if (!this.status?.enabled || !['user', 'message'].includes(target?.type) || typeof target.id !== 'string' || !/^[A-Za-z0-9_-]{1,150}$/.test(target.id)) throw chatSafetyError();
+        this.selection = {
+            marker,
+            key: ++this.selectionSerial,
+            target: {
+                type: target.type,
+                id: target.id,
+                name: typeof target.name === 'string' ? target.name : 'Pengguna organisasi',
+                preview: typeof target.preview === 'string' ? target.preview.slice(0, 4000) : '',
+            },
+        };
+    }
+    clearSelection(marker = this.marker) {
+        if (this.selection?.marker === marker) this.selection = null;
+    }
+    get selections() {
+        return this.status?.enabled && this.selection?.marker === this.marker ? [this.selection] : [];
     }
 
     willDestroy() {

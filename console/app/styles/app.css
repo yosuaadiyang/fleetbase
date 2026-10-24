@@ -4,3 +4,5 @@
 @import 'inter-ui/inter.css';
 @import 'console.css';
 @import 'components/input-label.css';
+
+@import 'components/chat-safety.css';

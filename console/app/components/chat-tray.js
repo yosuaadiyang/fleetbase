@@ -2,8 +2,17 @@ import BaseChatTray from '@fleetbase/ember-ui/components/chat-tray';
 import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { task } from 'ember-concurrency';
+import { inject as service } from '@ember/service';
 
 export default class ChatTrayComponent extends BaseChatTray {
+    @service chatSafety;
+    get canCreateChat() {
+        return super.canCreateChat && this.chatSafety.canContribute;
+    }
+    @task({ drop: true }) *createSafely() {
+        if (!this.chatSafety.canContribute) return;
+        return yield this.createChat.perform();
+    }
     @tracked directoryHasMore = false;
     @tracked directoryCursor = null;
     @tracked directoryError = '';

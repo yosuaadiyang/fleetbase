@@ -1,0 +1,17 @@
+{{#if this.visible}}
+    <div class="contrust-chat-user-actions">
+        <button type="button" disabled={{this.chatSafety.busy}} {{on "click" this.report}}>Laporkan pengguna</button>
+        <button type="button" disabled={{this.chatSafety.busy}} {{on "click" (fn this.confirm false)}}>Blokir pesan langsung</button>
+        <button type="button" disabled={{this.chatSafety.busy}} {{on "click" (fn this.confirm true)}}>Buka blokir</button>
+        {{#if this.error}}<p role="status">{{this.error}}</p>{{/if}}
+    </div>
+    {{#if this.confirming}}
+        <ChatSafetyDialog @title={{if this.confirmation.remove "Buka blokir pengguna" "Blokir pengguna"}} @close={{this.close}}>
+            <p>{{this.confirmation.person.name}}</p>
+            <p>Blokir menghentikan pesan langsung dan undangan baru di organisasi ini. Grup operasional bersama tetap terlihat. Membuka blokir mengizinkan pesan langsung dan undangan
+                kembali.</p>
+            {{#if this.error}}<p role="alert">{{this.error}}</p>{{/if}}
+            <button type="button" disabled={{this.chatSafety.busy}} {{on "click" this.save}}>Konfirmasi {{if this.confirmation.remove "buka blokir" "blokir"}}</button>
+        </ChatSafetyDialog>
+    {{/if}}
+{{/if}}

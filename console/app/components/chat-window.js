@@ -8,6 +8,7 @@ import { mergeChatFeed } from '../utils/merge-chat-feed';
 
 export default class ChatWindowComponent extends Component {
     @service chat;
+    @service chatSafety;
     @service socket;
     @service currentUser;
     @service modalsManager;
@@ -170,7 +171,7 @@ export default class ChatWindowComponent extends Component {
     }
 
     @task({ drop: true }) *sendMessage() {
-        if (this.sendError || !this.pendingMessageContent?.trim()) return;
+        if (!this.chatSafety.canContribute || this.sendError || !this.pendingMessageContent?.trim()) return;
         this.sendError = '';
         const content = this.pendingMessageContent;
         const attachments = this.pendingAttachmentFiles.map((file) => file.id);
@@ -196,7 +197,10 @@ export default class ChatWindowComponent extends Component {
     }
 
     @action addParticipant(user) {
-        this.chat.addParticipant(this.channel, user);
+        if (!this.chatSafety.canContribute) return;
+        return this.chat.addParticipant(this.channel, user).catch(() => {
+            this.directoryError = 'Anggota belum dapat ditambahkan. Periksa izin dan coba lagi.';
+        });
     }
 
     @action removeParticipant(participant) {
@@ -218,12 +222,14 @@ export default class ChatWindowComponent extends Component {
     }
 
     @action editChatName() {
+        if (!this.chatSafety.canContribute) return;
         this.modalsManager.show('modals/edit-chat-name', {
             title: 'Edit chat channel name',
             acceptButtonText: 'Save Changes',
             acceptButtonIcon: 'save',
             channelName: this.channel.name,
             confirm: (modal) => {
+                if (!this.chatSafety.canContribute) return;
                 modal.startLoading();
                 if (modal.getOption('channelName')) {
                     return this.chat.updateChatChannel(this.channel, { name: modal.getOption('channelName') });

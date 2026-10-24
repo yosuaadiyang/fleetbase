@@ -1,0 +1,17 @@
+<ChatSafetyDialog @title="Laporkan ke pengelola organisasi" @close={{this.close}}>
+    <p>Pengelola organisasi menerima
+        {{if (eq @selection.target.type "message") "salinan pesan terpilih sebagaimana tersimpan di server" "identitas pengguna terpilih"}}, alasan dan detail yang Anda isi. Riwayat lain,
+        lampiran dan koordinat tidak disertakan oleh formulir ini.</p>
+    <p>{{@selection.target.name}}</p>
+    {{#if @selection.target.preview}}<blockquote class="contrust-chat-report-preview">{{@selection.target.preview}}</blockquote><p>Pratinjau dibatasi 4.000 karakter.</p>{{/if}}
+    <label>Alasan<select aria-label="Alasan laporan" disabled={{this.locked}} {{on "change" this.changeReason}}><option value="">Pilih alasan</option>{{#each
+                this.reasons
+                as |reason|
+            }}<option value={{reason.id}} selected={{eq reason.id this.reason}}>{{reason.label}}</option>{{/each}}</select></label>
+    <label>Detail tambahan<Textarea aria-label="Detail laporan" @value={{this.details}} maxlength="2000" disabled={{this.locked}} {{on "input" this.changeDetails}} /></label>
+    <label><input type="checkbox" checked={{this.share}} disabled={{or this.pending this.saved}} {{on "change" this.changeShare}} />
+        Saya setuju membagikan konteks di atas kepada pengelola organisasi.</label>
+    {{#if this.journal}}<p>Draf pengiriman sudah tersimpan. Pengiriman ulang memakai ID dan isian yang sama.</p>{{/if}}
+    {{#if this.feedback}}<p role="status">{{this.feedback}}</p>{{/if}}
+    <button type="button" disabled={{this.cannotSubmit}} {{on "click" this.submit}}>{{if this.pending "Mengirim…" "Konfirmasi kirim laporan"}}</button>
+</ChatSafetyDialog>

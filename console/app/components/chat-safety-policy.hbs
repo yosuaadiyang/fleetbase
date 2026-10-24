@@ -1,0 +1,19 @@
+<div class="contrust-chat-policy" {{did-insert this.refresh}} {{did-update this.refresh this.chatSafety.marker}}>
+    {{#if this.chatSafety.checking}}<p role="status">Memeriksa syarat komunikasi…</p>
+    {{else if this.chatSafety.error}}<p role="alert">{{this.chatSafety.error}}</p><button type="button" {{on "click" this.refresh}}>Coba lagi</button>
+    {{else if this.chatSafety.status.enabled}}
+        {{#unless this.chatSafety.status.consented}}
+            <h3>Syarat komunikasi</h3>
+            <p>Gunakan chat untuk pekerjaan yang sah. Dilarang mengirim ancaman, pelecehan, kebencian, materi seksual atau eksploitasi, penipuan, materi ilegal, berkas berbahaya, atau data
+                pribadi yang tidak diperlukan.</p>
+            <p>Anda dapat melaporkan pesan/pengguna serta memblokir pesan langsung dan undangan baru. Grup operasional bersama tetap terlihat.</p>
+            <a href={{this.chatSafety.status.policy_url}} target="_blank" rel="noopener noreferrer">Baca syarat lengkap</a>
+            <label><input type="checkbox" checked={{this.checked}} disabled={{this.chatSafety.busy}} {{on "change" this.toggle}} />
+                Saya membaca dan menyetujui syarat komunikasi versi
+                {{this.chatSafety.status.policy_version}}</label>
+            {{#if this.error}}<p role="alert">{{this.error}}</p>{{/if}}
+            <button type="button" disabled={{or (not this.checked) this.chatSafety.busy}} {{on "click" this.accept}}>Setuju dan lanjutkan chat</button>
+        {{/unless}}
+    {{else}}{{#unless this.chatSafety.status}}<p>Syarat komunikasi belum terverifikasi.</p><button type="button" {{on "click" this.refresh}}>Periksa syarat</button>{{/unless}}
+    {{/if}}
+</div>

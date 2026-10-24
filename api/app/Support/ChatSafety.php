@@ -112,7 +112,7 @@ final class ChatSafety
             : self::reply(['code' => 'CHAT_REPORT_CONFLICT', 'errors' => ['Use a new request ID for a different report.']], 409);
         $message = null; $target = null; $targetUserUuid = null;
         if ($input['type'] === 'message') {
-            $message = ChatMessage::withoutCache()->where('company_uuid', $company)->where('public_id', $input['target'])->first();
+            $message = ChatMessage::withoutCache()->where('company_uuid', $company)->where(fn ($query) => $query->where('public_id', $input['target'])->orWhere('uuid', $input['target']))->first();
             $channel = $message ? OrganizationChat::channel($user, $message->chat_channel_uuid) : null;
             if (!$channel) return self::denied();
             $sender = $message->sender;

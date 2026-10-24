@@ -22,6 +22,14 @@ class Channel {
 module('Integration | Component | Contrust chat history', function (hooks) {
     setupRenderingTest(hooks);
     hooks.beforeEach(function () {
+        this.owner.register(
+            'service:chat-safety',
+            class extends Service {
+                status = { enabled: false };
+                marker = {};
+                canContribute = true;
+            }
+        );
         const state = this;
         this.sendCalls = [];
         this.owner.register(

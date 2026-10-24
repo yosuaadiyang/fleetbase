@@ -13,7 +13,15 @@
                     </a>{{/if}}
             </div>
             <div id={{concat "channel-" this.channel.id "-controls"}} class="chat-window-controls">
-                <DropdownButton class="chat-window-button" @icon="user-plus" @size="sm" @iconPrefix="fas" @triggerClass="hidden md:flex" @disabled={{not this.senderIsCreator}} as |dd|>
+                <DropdownButton
+                    class="chat-window-button"
+                    @icon="user-plus"
+                    @size="sm"
+                    @iconPrefix="fas"
+                    @triggerClass="hidden md:flex"
+                    @disabled={{or (not this.senderIsCreator) (not this.chatSafety.canContribute)}}
+                    as |dd|
+                >
                     <div class="next-dd-menu mt-1 mx-0" aria-labelledby="user-menu">
                         <div class="p-1">
                             <input type="search" aria-label="Cari anggota organisasi" value={{this.directoryQuery}} {{on "input" this.searchDirectory}} />
@@ -41,6 +49,7 @@
                 </button>
             </div>
         </div>
+        <ChatSafetyPolicy />
         <div id={{concat "channel-" this.channel.id "-participants"}} class="chat-window-participants-container">
             {{#each this.channel.participants as |chatParticipant|}}
                 <div class="chat-window-participant-bubble-container">
@@ -91,7 +100,14 @@
             </div>
             <div class="chat-window-input-box">
                 {{#if this.sendError}}<p role="alert" data-test-chat-send-error>{{this.sendError}}</p>{{/if}}
-                <Textarea @value={{this.pendingMessageContent}} disabled={{or this.sendMessage.isRunning this.sendError}} {{on "keypress" this.handleKeyPress}} placeholder="Type your message here" class="chat-window-input" rows="3" />
+                <Textarea
+                    @value={{this.pendingMessageContent}}
+                    disabled={{or (not this.chatSafety.canContribute) this.sendMessage.isRunning this.sendError}}
+                    {{on "keypress" this.handleKeyPress}}
+                    placeholder="Type your message here"
+                    class="chat-window-input"
+                    rows="3"
+                />
             </div>
             <div class="chat-window-submit-container">
                 <Button
@@ -100,7 +116,7 @@
                     @text="Send"
                     @size="xs"
                     @onClick={{perform this.sendMessage}}
-                    @disabled={{or (not this.pendingMessageContent) this.sendMessage.isRunning this.sendError}}
+                    @disabled={{or (not this.chatSafety.canContribute) (not this.pendingMessageContent) this.sendMessage.isRunning this.sendError}}
                     @isLoading={{this.sendMessage.isRunning}}
                     data-test-chat-send
                 />

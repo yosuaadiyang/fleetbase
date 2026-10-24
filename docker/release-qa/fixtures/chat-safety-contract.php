@@ -116,6 +116,12 @@ try {
     safetyCheck('identical retry returns same report without duplicate', $code === 200 && ($duplicate['id'] ?? null) === $reportId && DB::table('contrust_chat_reports')->where('request_id', $report['request_id'])->count() === 1, $code);
     $different = $report; $different['reason'] = 'spam';
     [$code] = safetyCall('POST', $base . '/reports', $different, 'driver_a'); safetyCheck('reusing request ID for changed content returns conflict', $code === 409, $code);
+    [$code] = safetyCall('POST', $base . '/reports', array_replace($report, ['request_id' => (string) Str::uuid(), 'target' => $message->uuid]), 'driver_a');
+    safetyCheck('web UUID selector reports only a message in the actors own room', $code === 201, $code);
+    foreach (['driver_a_other', 'owner_b'] as $name) {
+        [$code] = safetyCall('POST', $base . '/reports', array_replace($report, ['request_id' => (string) Str::uuid(), 'target' => $message->uuid]), $name);
+        safetyCheck($name . ' UUID selector cannot report an inaccessible message', $code === 403, $code);
+    }
     // Selected content remains reportable after a legacy author link or account
     // disappears. The review snapshot must not recover a removed profile.
     $legacy = $message->replicate(['id', 'uuid', 'public_id']);

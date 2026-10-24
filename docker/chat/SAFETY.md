@@ -3,7 +3,8 @@
 This is an implementation candidate, disabled by default. No production flag,
 policy acceptance, report, block or new moderator access has been activated.
 The current Android production versionCode 1 has no controls for this API and
-must remain immutable. A later version and matching web controls are required.
+must remain immutable. Later native and web controls are implemented as candidates;
+exact-version build, browser/phone acceptance and owner activation review are required.
 
 `CONTRUST_CHAT_SAFETY_ENABLED=true` enables both the endpoints and contribution
 checks. Keep it unset until the owner reviews the published policy, report
@@ -19,7 +20,8 @@ Endpoints use `/int/v1/contrust/chat-safety`:
 - `POST /blocks`, `DELETE /blocks`: one `user` public ID in the actor's company.
 - `POST /reports`: UUID `request_id`, `type` (`user` or `message`), public `target`,
   allowlisted `reason`, optional string `details` (2,000 characters), and explicit
-  boolean `share_context: true`. The confirmation must identify the organization
+  boolean `share_context: true`. The internal web message UUID is also accepted,
+  with exactly the same company and actual room-membership checks. The confirmation must identify the organization
   owner as recipient and show the selected context before transmission.
 - `GET /reports`: owner-only selected report contexts, 25 per page, `before` UUID.
 - `PATCH /reports/{id}`: bounded `status` and `resolution`, recorded reviewer/time.
@@ -74,3 +76,27 @@ nor does it implement the full account-erasure lifecycle. Those surfaces need
 their own access, content-policy and operational review before a whole-product
 UGC or Google Play readiness claim. Passing these chat contracts cannot close
 those separate gates.
+
+## Web candidate
+
+The application mounts one report host, independently of responsive chat trays.
+The inbox exposes own-block management and the owner review queue. New Chat
+contacts expose report/block controls; each chat message exposes selected-content
+reporting. Policy checks disable contribution controls and guard actual handlers
+until a verified disabled status or explicit consent acknowledgement exists.
+The backend remains authoritative for authorization, consent and block checks.
+
+The transport captures the bearer and session scope, bounds request/JSON wait,
+rejects malformed responses, does not follow redirects or retry mutations, and
+redacts failures. A report nonce and exact form payload are written/read back in
+this origin's sessionStorage before transmission. Reopening requires a new share
+confirmation and retries that payload; unreadable/conflicting state fails closed.
+This supports the browser session, not indefinite offline delivery or cross-tab
+recovery. No bearer is put in the journal.
+
+The owner review UI records an explicit outcome only; it never silently deletes
+content or changes account access. Actual follow-up remains an operator task.
+Dialog content uses escaped text and appends into the shared portal; it must not
+replace existing application/modal content. Regression tests cover those bounds,
+focus-preserving close, own blocks and pagination, owner-only UI, changed-session
+responses, user-selected transmission and identical report retries.

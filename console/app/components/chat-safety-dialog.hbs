@@ -1,0 +1,6 @@
+{{#in-element this.portalRoot insertBefore=null}}<div class="contrust-chat-safety-backdrop">
+        <section class="contrust-chat-safety-dialog" role="dialog" aria-modal="true" aria-label={{@title}} {{did-insert this.enter}} {{on "keydown" this.keydown}} ...attributes>
+            <header><h2 tabindex="-1">{{@title}}</h2><button type="button" aria-label="Tutup keamanan chat" {{on "click" @close}}>Tutup</button></header>
+            {{yield}}
+        </section>
+    </div>{{/in-element}}

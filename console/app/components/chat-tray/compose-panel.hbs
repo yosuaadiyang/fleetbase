@@ -8,6 +8,7 @@
             <FaIcon @icon="times" />
         </button>
     </header>
+    <ChatSafetyPolicy />
 
     <div class="chat-compose-form">
         <label class="chat-compose-label" for="chat-compose-name">Chat name</label>
@@ -45,6 +46,7 @@
         {{else if this.hasUsers}}
             {{#each @users as |user|}}
                 <ChatTray::ContactRow @user={{user}} @selectedUsers={{@selectedUsers}} @toggle={{@toggleUser}} />
+                <ChatSafetyUser @user={{user}} />
             {{/each}}
         {{else}}
             <div class="chat-inbox-empty-state">

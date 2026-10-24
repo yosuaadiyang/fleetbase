@@ -1,0 +1,49 @@
+<span class="contrust-chat-safety-anchor" {{did-insert this.refresh}} {{did-update this.refresh this.chatSafety.marker}}>{{#if this.chatSafety.status.enabled}}<button
+            type="button"
+            class="contrust-chat-safety-trigger"
+            aria-label="Keamanan chat"
+            {{on "click" this.open}}
+        >Keamanan</button>{{/if}}</span>
+{{#if this.visible}}
+    <ChatSafetyDialog @title="Keamanan chat organisasi" @close={{this.close}}>
+        <nav class="contrust-chat-user-actions"><button type="button" disabled={{or this.panel.loading this.chatSafety.busy}} {{on "click" (fn this.load "blocks" null)}}>Pengguna diblokir</button>
+            {{#if this.chatSafety.status.moderator}}<button type="button" disabled={{or this.panel.loading this.chatSafety.busy}} {{on "click" (fn this.load "reports" null)}}>Review laporan
+                    organisasi</button>{{/if}}</nav>
+        <p>Daftar ini hanya mencakup organisasi yang sedang aktif. Mantan anggota ditampilkan tanpa nama profil terbarunya.</p>
+        {{#if this.panel.loading}}<p role="status">Memuat…</p>{{/if}}
+        {{#if this.panel.feedback}}<p role="status">{{this.panel.feedback}}</p>{{/if}}
+        {{#each this.panel.rows key="id" as |row|}}
+            <article class="contrust-chat-safety-row">
+                {{#if (eq this.panel.kind "blocks")}}<p>{{if (eq row.name "Former member") "Mantan anggota" row.name}}</p><button
+                        type="button"
+                        disabled={{this.chatSafety.busy}}
+                        {{on "click" (fn this.confirm row)}}
+                    >Buka blokir pengguna</button>
+                {{else}}<p>Alasan: {{row.reason}} · Status: {{row.status}}</p><p>{{row.context.target.name}}</p><blockquote
+                        class="contrust-chat-report-preview"
+                    >{{row.context.message.content}}</blockquote><p>{{row.context.details}}</p>
+                    <button type="button" disabled={{this.chatSafety.busy}} {{on "click" (fn this.confirm row)}}>Catat hasil review</button>{{/if}}
+                {{#if (and this.editing (eq this.editor.id row.id))}}
+                    {{#if (eq this.panel.kind "reports")}}
+                        <p>Mencatat hasil review tidak otomatis menghapus konten atau menonaktifkan akun. Pilih hasil yang sesuai tindakan yang benar-benar dilakukan.</p>
+                        <label>Status<select aria-label="Status review" {{on "change" this.changeStatus}}>{{#each this.statuses as |statusChoice|}}<option
+                                        value={{statusChoice.id}}
+                                        selected={{eq statusChoice.id this.editor.status}}
+                                    >{{statusChoice.label}}</option>{{/each}}</select></label>
+                        <label>Hasil<select aria-label="Hasil review" {{on "change" this.changeResolution}}>{{#each this.resolutions as |resolutionChoice|}}<option
+                                        value={{resolutionChoice.id}}
+                                        selected={{eq resolutionChoice.id this.editor.resolution}}
+                                    >{{resolutionChoice.label}}</option>{{/each}}</select></label>
+                    {{else}}<p>Pesan langsung dan undangan baru akan diizinkan kembali; grup operasional bersama tetap terlihat.</p>{{/if}}
+                    <label><input type="checkbox" checked={{this.editor.confirmed}} disabled={{this.chatSafety.busy}} {{on "change" this.changeConfirmation}} />
+                        Saya mengonfirmasi tindakan pada entri ini.</label>
+                    <button type="button" disabled={{or (not this.editor.confirmed) this.chatSafety.busy}} {{on "click" this.save}}>Konfirmasi simpan</button>
+                {{/if}}
+            </article>
+        {{else}}{{#unless this.panel.loading}}<p>Tidak ada entri pada halaman ini.</p>{{/unless}}{{/each}}
+        <footer><button type="button" disabled={{or this.panel.loading this.chatSafety.busy}} {{on "click" (fn this.load this.panel.kind this.panel.after)}}>Muat ulang</button>
+            {{#if this.panel.after}}<button type="button" disabled={{or this.panel.loading this.chatSafety.busy}} {{on "click" (fn this.load this.panel.kind null)}}>Halaman pertama</button>{{/if}}
+            {{#if this.panel.next}}<button type="button" disabled={{or this.panel.loading this.chatSafety.busy}} {{on "click" (fn this.load this.panel.kind this.panel.next)}}>Halaman
+                    berikutnya</button>{{/if}}</footer>
+    </ChatSafetyDialog>
+{{/if}}
