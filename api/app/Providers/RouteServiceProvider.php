@@ -29,6 +29,16 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->routes(
             function () {
+                Route::prefix('/int/v1/contrust/chat-safety')->group(function () {
+                    $controller = \App\Http\Controllers\ChatSafetyController::class;
+                    Route::get('/', [$controller, 'status']);
+                    Route::post('/consent', [$controller, 'consent']);
+                    Route::post('/blocks', [$controller, 'block']);
+                    Route::delete('/blocks', [$controller, 'unblock']);
+                    Route::post('/reports', [$controller, 'report']);
+                    Route::get('/reports', [$controller, 'reports']);
+                    Route::patch('/reports/{id}', [$controller, 'review']);
+                });
                 Route::post('/int/v1/contrust/push-devices', [\App\Http\Controllers\DriverPushDeviceController::class, 'store']);
                 Route::delete('/int/v1/contrust/push-devices', [\App\Http\Controllers\DriverPushDeviceController::class, 'destroy']);
                 Route::get('/contrust/private-files/{id}', [\App\Http\Controllers\ProofFileController::class, 'show']);

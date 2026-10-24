@@ -19,6 +19,12 @@ RUN php /tmp/contrust-patch-driver-auth.php \
     && rm /tmp/contrust-patch-driver-auth.php
 COPY api/app/Support/ManagedDriverApiAccess.php /fleetbase/api/app/Support/ManagedDriverApiAccess.php
 COPY api/app/Support/InternalChatAccess.php /fleetbase/api/app/Support/InternalChatAccess.php
+COPY api/app/Support/ChatSafety.php api/app/Support/ChatSafetyInput.php /fleetbase/api/app/Support/
+COPY api/app/Http/Controllers/ChatSafetyController.php /fleetbase/api/app/Http/Controllers/ChatSafetyController.php
+COPY api/config/contrust.php /fleetbase/api/config/contrust.php
+RUN php -l /fleetbase/api/app/Support/ChatSafety.php \
+    && php -l /fleetbase/api/app/Support/ChatSafetyInput.php \
+    && php -l /fleetbase/api/app/Http/Controllers/ChatSafetyController.php
 RUN php -l /fleetbase/api/app/Support/InternalChatAccess.php
 COPY api/app/Support/DriverOrderComments.php /fleetbase/api/app/Support/DriverOrderComments.php
 COPY api/app/Support/OrganizationChat.php api/app/Support/ChatPagination.php /fleetbase/api/app/Support/

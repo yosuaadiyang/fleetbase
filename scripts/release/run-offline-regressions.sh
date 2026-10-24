@@ -26,3 +26,4 @@ run_test socket publisher-test.php
 run_test notifications channel-policy-test.php
 
 run_test chat pagination-input-test.php
+run_test chat safety-input-test.php

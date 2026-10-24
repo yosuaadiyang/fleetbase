@@ -9,7 +9,7 @@ try:
         assert report['credentials_printed'] is False
         print('PASS synthetic seed: 2 organizations, 8 actors, no credentials printed')
     else:
-        minimum={'delivery':80,'otp':29,'place':25,'socket':53,'socket-transport':17,'proof-files':34,'driver-comments':30,'organization-chat':60,'chat-pagination':34,'push-devices':44,'internal-chat':47,'web-chat-history':30,'driver-reports':114,'diagnostic-access':19,'dashboard-metrics':8,'resource-crud':218}[kind]
+        minimum={'delivery':80,'otp':29,'place':25,'socket':53,'socket-transport':17,'proof-files':34,'driver-comments':30,'organization-chat':60,'chat-pagination':34,'push-devices':44,'internal-chat':47,'web-chat-history':30,'chat-safety':60,'driver-reports':114,'diagnostic-access':19,'dashboard-metrics':8,'resource-crud':218}[kind]
         checks=report['checks']
         assert report['environment']==('isolated-synthetic-socket' if kind=='socket-transport' else 'isolated-synthetic-mysql') and isinstance(checks,list) and len(checks)>=minimum
         assert len({c['name'] for c in checks})==len(checks)

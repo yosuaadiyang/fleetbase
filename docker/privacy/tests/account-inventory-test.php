@@ -24,6 +24,9 @@ foreach ([
     'personal_access_tokens' => 'tokenable_id TEXT, token TEXT',
     'user_devices' => 'user_uuid TEXT, token TEXT',
     'contrust_push_devices' => 'user_uuid TEXT, encrypted_token TEXT',
+    'contrust_chat_consents' => 'user_uuid TEXT, policy_version TEXT',
+    'contrust_chat_blocks' => 'user_uuid TEXT, blocked_user_uuid TEXT',
+    'contrust_chat_reports' => 'reporter_uuid TEXT, target_user_uuid TEXT, reviewer_uuid TEXT, encrypted_context TEXT',
     'positions' => 'subject_uuid TEXT, coordinates TEXT',
     'orders' => 'uuid TEXT, driver_assigned_uuid TEXT, customer_uuid TEXT, created_by_uuid TEXT',
     'issues' => 'uuid TEXT, driver_uuid TEXT, reported_by_uuid TEXT',
@@ -53,6 +56,15 @@ insert($db, 'personal_access_tokens', [$user, 'synthetic-secret-token']);
 insert($db, 'user_devices', [$user, 'synthetic-push-token']);
 insert($db, 'contrust_push_devices', [$user, 'synthetic-encrypted-token']);
 insert($db, 'contrust_push_devices', [$other, 'other-encrypted-token']);
+insert($db, 'contrust_chat_consents', [$user, 'policy-version']);
+insert($db, 'contrust_chat_consents', [$other, 'other-policy']);
+insert($db, 'contrust_chat_blocks', [$user, $other]);
+insert($db, 'contrust_chat_blocks', [$other, $user]);
+insert($db, 'contrust_chat_blocks', [$other, $other]);
+insert($db, 'contrust_chat_reports', [$user, $other, null, 'synthetic-encrypted-report']);
+insert($db, 'contrust_chat_reports', [$other, $user, null, 'synthetic-encrypted-target-report']);
+insert($db, 'contrust_chat_reports', [$other, $other, $user, 'synthetic-encrypted-review']);
+insert($db, 'contrust_chat_reports', [$other, $other, $other, 'other-encrypted-report']);
 insert($db, 'positions', ['driver-1', 'synthetic-private-location']);
 insert($db, 'positions', ['driver-2', 'other-private-location']);
 insert($db, 'orders', ['order-1', 'driver-1', null, $user]);
@@ -80,6 +92,9 @@ foreach (['users', 'drivers', 'positions', 'orders', 'issues', 'fuel_reports', '
     check($result['tables'][$table]['candidate_rows'] === 1, 'scoped relationship count for ' . $table);
 }
 check($result['tables']['files']['candidate_rows'] === 2, 'finds attached shared file without equating relation with ownership');
+check($result['tables']['contrust_chat_consents']['candidate_rows'] === 1, 'consent inventory is scoped to the account');
+check($result['tables']['contrust_chat_blocks']['candidate_rows'] === 2, 'block inventory covers both directions without duplicates');
+check($result['tables']['contrust_chat_reports']['candidate_rows'] === 3, 'report inventory covers reporter, target and reviewer relationships');
 check(count($result['required_reviews']) >= 5, 'unstructured content, storage, providers and backups remain review gates');
 $encoded = json_encode($result, JSON_THROW_ON_ERROR);
 foreach ([$user, $other, 'synthetic-private', 'synthetic-secret', 'private/path', 'membership-1', 'driver-1', 'participant-1'] as $secret) {

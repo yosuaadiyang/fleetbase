@@ -30,6 +30,14 @@ final class OrganizationChat
 
     public static function handle(Request $request, User $user, string $action): JsonResponse
     {
+        $write = !in_array($action, ['getAvailablePartificants', 'query', 'find'], true);
+        return ChatSafety::enabled() && $write && is_string($user->company_uuid)
+            ? ChatSafety::synchronized($user->company_uuid, fn () => self::dispatch($request, $user, $action))
+            : self::dispatch($request, $user, $action);
+    }
+
+    private static function dispatch(Request $request, User $user, string $action): JsonResponse
+    {
         if (!is_string($user->company_uuid) || !self::members($user->company_uuid)->where('uuid', $user->uuid)->exists()) return self::denied();
         $company = $user->company_uuid;
         // Ember posts a named resource; Navigator posts flat JSON. Normalize
@@ -48,6 +56,8 @@ final class OrganizationChat
             'createReadReceipt' => ['participant'], 'addParticipant' => ['user'], 'removeParticipant' => [],
         ];
         if (!isset($fields[$action]) || array_diff(array_keys($request->all()), $fields[$action])) return self::denied();
+        if (in_array($action, ['create', 'update', 'sendMessage', 'addParticipant'], true)
+            && ($response = ChatSafety::contribution($user))) return $response;
         $id = $request->route()->parameter('id');
         if ($action === 'getAvailablePartificants') {
             $query = self::members($company)->where('uuid', '!=', $user->uuid);
@@ -82,6 +92,7 @@ final class OrganizationChat
             if ($people->count() !== count($ids)) return self::denied();
             $people = $people->reject(fn ($p) => $p->uuid === $user->uuid);
             if ($people->isEmpty()) return self::invalid();
+            if ($response = ChatSafety::invitation($company, array_merge([$user->uuid], $people->pluck('uuid')->all()))) return $response;
             if ($limited = self::limit($user, 'create', 10)) return $limited;
             $channel = DB::transaction(function () use ($company, $user, $name, $people) {
                 $channel = new ChatChannel();
@@ -126,6 +137,7 @@ final class OrganizationChat
             $userId = $request->input('user');
             $person = is_string($userId) ? self::members($company)->where('public_id', $userId)->first() : null;
             if (!$person) return self::denied();
+            if ($response = ChatSafety::invitation($company, array_merge($channel->participants()->pluck('user_uuid')->all(), [$person->uuid]))) return $response;
             $participant = self::add($channel, $person);
             return $participant ? self::response(self::participantRecord($participant), 201) : self::invalid();
         }
@@ -135,6 +147,7 @@ final class OrganizationChat
             return self::response(['id' => $targetParticipant->public_id, 'deleted' => true]);
         }
         if ($action === 'sendMessage') {
+            if ($response = ChatSafety::message($channel)) return $response;
             $sender = $request->input('sender');
             if ($sender !== null && !in_array($sender, [$actor->uuid, $actor->public_id], true)) return self::denied();
             // Attachments need their own file ownership contract before enabling.

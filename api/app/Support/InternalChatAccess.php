@@ -47,6 +47,8 @@ final class InternalChatAccess
         // Never accept client query directives which expand unrelated private models.
         if ($request->hasAny(['contain', 'with', 'expand', 'include', 'columns', 'fields', 'raw', 'with_count', 'count'])) return self::invalid();
         $action = $request->route()->getActionMethod();
+        if (in_array($action, ['createRecord', 'updateRecord'], true) && in_array($kind, ['ChatChannel', 'ChatMessage', 'ChatParticipant'], true)
+            && ($response = ChatSafety::contribution($user, $company))) return $response;
         if ($action === 'queryRecord') {
             if ($request->has('limit') && (!is_scalar($request->input('limit')) || !preg_match('/^[1-9][0-9]{0,2}$/D', (string) $request->input('limit')) || (int) $request->input('limit') > 100)) return self::invalid();
             return null; // Mandatory room SQL scope is added by the controller trait.
@@ -100,8 +102,14 @@ final class InternalChatAccess
             if ($action === 'createRecord') {
                 $people = $body['participants'] ?? [];
                 if (!is_array($people) || !array_is_list($people) || count($people) > 50) return self::invalid();
-                foreach ($people as $id) if (!self::member($id, $company)) return self::denied();
+                $uuids = [];
+                foreach ($people as $id) {
+                    $person = self::member($id, $company);
+                    if (!$person) return self::denied();
+                    $uuids[] = $person->uuid;
+                }
                 $safe['participants'] = array_values(array_unique($people));
+                if ($response = ChatSafety::invitation($company, array_merge([$user->uuid], $uuids))) return $response;
             }
             $request->replace([$wrapper => $safe]);
             return null;
@@ -112,6 +120,7 @@ final class InternalChatAccess
             $participant = $room->participants()->where('company_uuid', $company)->where('user_uuid', $user->uuid)->first();
             if (!$participant || ($record && $record->sender_uuid !== $participant->uuid)) return self::denied();
             if ($action === 'deleteRecord') return self::remove($record);
+            if ($response = ChatSafety::message($room)) return $response;
             if (isset($body['sender_uuid']) && !in_array($body['sender_uuid'], [$participant->uuid, $participant->public_id], true)) return self::denied();
             if (isset($body['chat_channel_uuid']) && !in_array($body['chat_channel_uuid'], [$room->uuid, $room->public_id], true)) return self::denied();
             if (($body['attachment_files'] ?? []) !== []) return self::invalid();
@@ -126,6 +135,7 @@ final class InternalChatAccess
             $room = self::room($body['chat_channel_uuid'] ?? null, $company, $user);
             $person = self::member($body['user_uuid'] ?? null, $company);
             if (!$room || !$person || $room->created_by_uuid !== $user->uuid) return self::denied();
+            if ($response = ChatSafety::invitation($company, array_merge($room->participants()->pluck('user_uuid')->all(), [$person->uuid]))) return $response;
             $existing = $room->participants()->where('company_uuid', $company)->where('user_uuid', $person->uuid)->first();
             if ($existing) return self::reply(['chatParticipant' => new \Fleetbase\Http\Resources\ChatParticipant($existing)]);
             $request->replace([$wrapper => ['chat_channel_uuid' => $room->uuid, 'user_uuid' => $person->uuid]]);

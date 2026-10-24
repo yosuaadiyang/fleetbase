@@ -18,8 +18,14 @@ class AuthorizationGuard
             return response()->authorizationError()->setStatusCode(403);
         }
 
-        if ($response = \App\Support\InternalChatAccess::check($request, $user)) return $response;
-
-        return $next($request);
+        $proceed = function () use ($request, $user, $next) {
+            if ($response = \App\Support\InternalChatAccess::check($request, $user)) return $response;
+            return $next($request);
+        };
+        if (\App\Support\ChatSafety::enabled() && \App\Support\InternalChatAccess::kind($request)
+            && !in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true) && is_string(session('company'))) {
+            return \App\Support\ChatSafety::synchronized(session('company'), $proceed);
+        }
+        return $proceed();
     }
 }
