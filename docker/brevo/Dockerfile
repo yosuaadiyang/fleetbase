@@ -11,26 +11,23 @@ RUN echo '612d8893b975f6a4d63dc2ebe56a8851e94bde7a27a625889866cf0372f0746f  /fle
 COPY docker/auth/middleware/AuthorizationGuard.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthorizationGuard.php
 RUN echo 'b477d4b0d76f74f05e52821b2ace637745f0e8f89daf7181748a987b4e5d082d  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php' | sha256sum --check
 COPY docker/auth/middleware/AuthenticateOnceWithBasicAuth.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php
-COPY api/app/Support/DriverAuthentication.php /fleetbase/api/app/Support/DriverAuthentication.php
+# Group same-directory sources to stay below Docker's image layer limit.
+COPY api/app/Support/DriverAuthentication.php api/app/Support/ManagedDriverApiAccess.php \
+    api/app/Support/InternalChatAccess.php api/app/Support/ChatSafety.php api/app/Support/ChatSafetyInput.php \
+    api/app/Support/DriverOrderComments.php api/app/Support/OrganizationChat.php api/app/Support/ChatPagination.php \
+    api/app/Support/DriverReports.php api/app/Support/ProofImageInput.php /fleetbase/api/app/Support/
+COPY api/app/Http/Controllers/ChatSafetyController.php /fleetbase/api/app/Http/Controllers/ChatSafetyController.php
+COPY api/config/contrust.php /fleetbase/api/config/contrust.php
+RUN php -l /fleetbase/api/app/Support/ChatSafety.php \
+    && php -l /fleetbase/api/app/Support/ChatSafetyInput.php \
+    && php -l /fleetbase/api/app/Http/Controllers/ChatSafetyController.php \
+    && php -l /fleetbase/api/app/Support/InternalChatAccess.php \
+    && php -l /fleetbase/api/app/Support/ChatPagination.php
 COPY docker/auth/patch-driver-auth.php /tmp/contrust-patch-driver-auth.php
 RUN php /tmp/contrust-patch-driver-auth.php \
     && php -l /fleetbase/api/app/Support/DriverAuthentication.php \
     && php -l /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Http/Controllers/Api/v1/DriverController.php \
     && rm /tmp/contrust-patch-driver-auth.php
-COPY api/app/Support/ManagedDriverApiAccess.php /fleetbase/api/app/Support/ManagedDriverApiAccess.php
-COPY api/app/Support/InternalChatAccess.php /fleetbase/api/app/Support/InternalChatAccess.php
-COPY api/app/Support/ChatSafety.php api/app/Support/ChatSafetyInput.php /fleetbase/api/app/Support/
-COPY api/app/Http/Controllers/ChatSafetyController.php /fleetbase/api/app/Http/Controllers/ChatSafetyController.php
-COPY api/config/contrust.php /fleetbase/api/config/contrust.php
-RUN php -l /fleetbase/api/app/Support/ChatSafety.php \
-    && php -l /fleetbase/api/app/Support/ChatSafetyInput.php \
-    && php -l /fleetbase/api/app/Http/Controllers/ChatSafetyController.php
-RUN php -l /fleetbase/api/app/Support/InternalChatAccess.php
-COPY api/app/Support/DriverOrderComments.php /fleetbase/api/app/Support/DriverOrderComments.php
-COPY api/app/Support/OrganizationChat.php api/app/Support/ChatPagination.php /fleetbase/api/app/Support/
-RUN php -l /fleetbase/api/app/Support/ChatPagination.php
-COPY api/app/Support/DriverReports.php /fleetbase/api/app/Support/DriverReports.php
-COPY api/app/Support/ProofImageInput.php /fleetbase/api/app/Support/ProofImageInput.php
 COPY docker/auth/patch-driver-order.php /tmp/contrust-patch-driver-order.php
 RUN php /tmp/contrust-patch-driver-order.php \
     && php -l /fleetbase/api/app/Support/ManagedDriverApiAccess.php \
