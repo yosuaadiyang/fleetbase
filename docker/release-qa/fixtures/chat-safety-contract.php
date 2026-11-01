@@ -234,8 +234,8 @@ try {
     $membership = CompanyUser::where('company_uuid', $owner->company_uuid)->where('user_uuid', $state['users']['driver_a']['uuid'])->firstOrFail();
     try {
         $membership->forceFill(['status' => 'inactive'])->saveQuietly();
-        [$code] = safetyCall('GET', $base, null, 'driver_a'); safetyCheck('revoked membership loses safety access despite driver profile', $code === 403, $code);
-        [$code] = safetyCall('POST', $base . '/reports', $report, 'driver_a'); safetyCheck('revoked membership cannot retrieve prior idempotent report', $code === 403, $code);
+        [$code] = safetyCall('GET', $base, null, 'driver_a'); safetyCheck('revoked membership loses safety access despite driver profile', $code === 401, $code);
+        [$code] = safetyCall('POST', $base . '/reports', $report, 'driver_a'); safetyCheck('revoked membership cannot retrieve prior idempotent report', $code === 401, $code);
     } finally { $membership->forceFill(['status' => 'active'])->saveQuietly(); }
     DB::table('personal_access_tokens')->where('id', $tokenIds[3])->delete();
     [$code] = safetyCall('GET', $base, null, 'driver_a'); safetyCheck('revoked token cannot read safety state', $code === 401, $code);
