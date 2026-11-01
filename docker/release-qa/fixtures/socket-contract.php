@@ -50,6 +50,12 @@ $u=$actors['viewer_a']['user'];$old=$u->status;
 try{$u->forceFill(['status'=>'inactive'])->saveQuietly();ck('inactive user invalidates ticket',SocketAccessTickets::resolve($tickets['viewer_a'])===null);}finally{$u->forceFill(['status'=>$old])->saveQuietly();}
 $m=$actors['dispatcher_a']['member'];$old=$m->status;
 try{$m->forceFill(['status'=>'inactive'])->saveQuietly();ck('removed membership invalidates ticket',SocketAccessTickets::resolve($tickets['dispatcher_a'])===null);}finally{$m->forceFill(['status'=>$old])->saveQuietly();}
+foreach(['driver_a','staff_driver_a'] as $name){
+ $member=CompanyUser::where('company_uuid',$state['companies']['a']['uuid'])->where('user_uuid',$state['users'][$name]['uuid'])->firstOrFail();$previous=$member->status;
+ try{$member->forceFill(['status'=>'inactive'])->saveQuietly();ck($name.' membership removal invalidates existing driver ticket',SocketAccessTickets::resolve($tickets[$name])===null);}
+ finally{$member->forceFill(['status'=>$previous])->saveQuietly();}
+ ck($name.' restored membership retains valid driver ticket',is_array(SocketAccessTickets::resolve($tickets[$name])));
+}
 $user=$actors['staff_driver_a']['user'];$stale=$user->createToken(Illuminate\Support\Str::uuid()->toString())->accessToken;$created[]=$stale->id;
 ck('missing staff driver cannot fall back to staff permissions',SocketAccessTickets::issue($stale)===null);
 $plain=User::findOrFail($state['users']['owner_a']['uuid'])->createToken($state['users']['owner_a']['uuid']);$created[]=$plain->accessToken->id;

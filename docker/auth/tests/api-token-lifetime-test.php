@@ -27,6 +27,12 @@ checkApiToken($method->invoke($middleware,$fresh) instanceof Laravel\Sanctum\Per
 config(['sanctum.expiration'=>'invalid-configuration']);
 checkApiToken($method->invoke($middleware,$fresh)===null,'invalid lifetime configuration fails closed');
 config(['sanctum.expiration'=>null]);
+foreach (['inactive', 'suspended', null] as $status) {
+    $capsule->getConnection()->table('users')->where('uuid', $user->uuid)->update(['status' => $status]);
+    checkApiToken($method->invoke($middleware, $fresh) === null, 'non-active account cannot retain a PAT');
+}
+$capsule->getConnection()->table('users')->where('uuid', $user->uuid)->update(['status' => 'active']);
+checkApiToken($method->invoke($middleware, $fresh) instanceof Laravel\Sanctum\PersonalAccessToken, 'active account still accepts its valid PAT');
 Laravel\Sanctum\PersonalAccessToken::findToken($fresh)->delete();
 checkApiToken($method->invoke($middleware,$fresh)===null,'revoked token rejected');
 echo $count.' API token lifetime checks passed; SQLite memory only.'.PHP_EOL;

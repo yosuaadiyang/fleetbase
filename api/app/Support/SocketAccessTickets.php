@@ -40,7 +40,7 @@ final class SocketAccessTickets
             return null;
         }
         $member = CompanyUser::where('company_uuid', $company->uuid)->where('user_uuid', $user->uuid)->where('status', 'active')->first();
-        if (!$driver && !$member && !($user->isAdmin() && $company->owner_uuid === $user->uuid)) return null;
+        if (!$member && ($driver || !($user->isAdmin() && $company->owner_uuid === $user->uuid))) return null;
         return compact('token', 'user', 'company', 'driver', 'member');
     }
 

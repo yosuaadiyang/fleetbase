@@ -24,6 +24,14 @@ class AuthenticateOnceWithBasicAuth
 
         if ($authenticationResponse === true) {
             $user = $request->user();
+            if (!$user instanceof User || $user->status !== 'active') {
+                return response()->json(['errors' => ['Authentication required.']], 401);
+            }
+            $tokenName = $request->attributes->get('contrust.token_name');
+            $profileSession = $user->isType('driver') || (is_string($tokenName) && Str::isUuid($tokenName) && $tokenName !== $user->uuid);
+            if (!\App\Support\ActiveAccountSession::allows($user, session('company'), $profileSession)) {
+                return response()->json(['errors' => ['Organization access unavailable.']], 403);
+            }
             if ($user instanceof User) {
                 $profileResponse = \App\Support\ManagedDriverApiAccess::check($request, $user);
                 if ($profileResponse !== null) {
@@ -130,6 +138,12 @@ class AuthenticateOnceWithBasicAuth
             return response()->error('Oops! The api credentials provided were not valid', 401);
         }
 
+        // A legacy key cannot outlive its creating account's active status.
+        $creatorActive = User::on($apiCredential->getConnectionName())->withoutGlobalScopes()
+            ->where('uuid', $apiCredential->user_uuid)->whereNull('deleted_at')->where('status', 'active')->exists();
+        if (!$creatorActive) {
+            return response()->json(['errors' => ['Authentication required.']], 401);
+        }
         $request->attributes->set('contrust.navigator_bootstrap', $apiCredential->name === 'NavigationAppLinker');
 
         // If OPTIONS set api key and continue
@@ -235,6 +249,10 @@ class AuthenticateOnceWithBasicAuth
     {
         $sanctumToken = PersonalAccessToken::findToken($token);
         if ($sanctumToken instanceof PersonalAccessToken) {
+            $principal = $sanctumToken->tokenable;
+            if (!$principal instanceof User || $principal->status !== 'active') {
+                return null;
+            }
             // Apply the same explicit and global lifetimes as the Sanctum guard.
             if ($sanctumToken->expires_at && $sanctumToken->expires_at->isPast()) {
                 return null;

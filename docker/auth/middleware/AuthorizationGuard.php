@@ -4,6 +4,7 @@ namespace Fleetbase\Http\Middleware;
 
 use Fleetbase\Support\Auth;
 use Fleetbase\Traits\CustomMiddleware;
+use Fleetbase\Models\User;
 
 class AuthorizationGuard
 {
@@ -11,8 +12,18 @@ class AuthorizationGuard
 
     public function handle($request, \Closure $next)
     {
-        $requiredPermissions = Auth::resolvePermissionsFromRequest($request);
         $user = Auth::getUserFromSession($request);
+        if (!$user instanceof User || $user->status !== 'active') {
+            return response()->json(['errors' => ['Authentication required.']], 401);
+        }
+        $tokenName = $user->currentAccessToken()?->name;
+        if ($user->isType('driver') || (is_string($tokenName) && \Illuminate\Support\Str::isUuid($tokenName) && $tokenName !== $user->uuid)) {
+            return response()->json(['errors' => ['Use the assigned driver API.']], 403);
+        }
+        if (!\App\Support\ActiveAccountSession::allows($user, session('company'))) {
+            return response()->json(['errors' => ['Organization access unavailable.']], 403);
+        }
+        $requiredPermissions = Auth::resolvePermissionsFromRequest($request);
         if ($user->isNotAdmin() && $requiredPermissions->isNotEmpty() && $user->doesntHavePermissions($requiredPermissions)) {
             // The session is authenticated; missing permission must not look like expiry.
             return response()->authorizationError()->setStatusCode(403);

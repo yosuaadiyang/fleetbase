@@ -12,7 +12,7 @@ COPY docker/auth/middleware/AuthorizationGuard.php /fleetbase/api/vendor/fleetba
 RUN echo 'b477d4b0d76f74f05e52821b2ace637745f0e8f89daf7181748a987b4e5d082d  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php' | sha256sum --check
 COPY docker/auth/middleware/AuthenticateOnceWithBasicAuth.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Middleware/AuthenticateOnceWithBasicAuth.php
 # Group same-directory sources to stay below Docker's image layer limit.
-COPY api/app/Support/DriverAuthentication.php api/app/Support/ManagedDriverApiAccess.php \
+COPY api/app/Support/ActiveAccountSession.php api/app/Support/DriverAuthentication.php api/app/Support/ManagedDriverApiAccess.php \
     api/app/Support/InternalChatAccess.php api/app/Support/ChatSafety.php api/app/Support/ChatSafetyInput.php \
     api/app/Support/DriverOrderComments.php api/app/Support/OrganizationChat.php api/app/Support/ChatPagination.php \
     api/app/Support/DriverReports.php api/app/Support/ProofImageInput.php /fleetbase/api/app/Support/

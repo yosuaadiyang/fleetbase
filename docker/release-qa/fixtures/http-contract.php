@@ -26,6 +26,24 @@ foreach(['owner_a','owner_b','viewer_a','dispatcher_a'] as $actor){
  $tokens[$actor]=$data['token'];
 }
 [$status]=callQa('GET','/int/v1/places');checkQa('anonymous private places rejected',$status===401,$status);
+foreach (['owner_a', 'viewer_a', 'dispatcher_a'] as $account) {
+ $principal=Fleetbase\Models\User::findOrFail($state['users'][$account]['uuid']);
+ foreach(['/v1/places','/int/v1/places'] as $path){[$status]=callQa('GET',$path,null,$account);checkQa($account.' active principal retains '.$path,$status===200,$status);}
+ $beforePlaces=DB::table('places')->count();
+ $principal->forceFill(['status'=>'inactive'])->saveQuietly();
+ try {
+  foreach(['/v1/places','/int/v1/places'] as $path){
+   [$status]=callQa('GET',$path,null,$account);checkQa($account.' inactive principal rejects existing token '.$path,$status===401,$status);
+   [$status]=callQa('POST',$path,['place'=>['name'=>'Synthetic forbidden inactive write']],$account);checkQa($account.' inactive principal cannot write '.$path,$status===401,$status);
+  }
+  checkQa($account.' disabled-token attempts do not create places',DB::table('places')->count()===$beforePlaces);
+ } finally {$principal->forceFill(['status'=>'active'])->saveQuietly();}
+ foreach(['/v1/places','/int/v1/places'] as $path){[$status]=callQa('GET',$path,null,$account);checkQa($account.' restored principal retains '.$path,$status===200,$status);}
+}
+$member=Fleetbase\Models\CompanyUser::where('company_uuid',$state['companies']['a']['uuid'])->where('user_uuid',$state['users']['viewer_a']['uuid'])->firstOrFail();
+$member->forceFill(['status'=>'inactive'])->saveQuietly();
+try {foreach(['/v1/places','/int/v1/places'] as $path){[$status]=callQa('GET',$path,null,'viewer_a');checkQa('revoked current organization membership denies existing session '.$path,$status===403,$status);}}
+finally {$member->forceFill(['status'=>'active'])->saveQuietly();}
 $places=[];
 foreach(['owner_a','owner_b'] as $actor){
  $body=['place'=>['name'=>'Release QA PRIVATE '.$actor,'street1'=>'Public landmark test only','city'=>'Jakarta Pusat','country'=>'ID','location'=>['type'=>'Point','coordinates'=>[106.8272,-6.1754]]]];
@@ -89,8 +107,11 @@ if(isset($tokens['driver_a'])){
  $tokens['invalid_driver_session']=$qaDriverUser->createToken('release-qa-not-a-driver-profile')->plainTextToken;
  [$status]=callQa('GET','/v1/drivers/'.$ownDriver,null,'invalid_driver_session');checkQa('driver token must bind a valid owned profile',$status===403,$status);
  $qaDriverUser->forceFill(['status'=>'inactive'])->saveQuietly();
- try {[$status]=callQa('GET','/v1/drivers/'.$ownDriver,null,'driver_a');checkQa('deactivated driver token cannot keep accessing API',$status===403,$status);}
+ try {[$status]=callQa('GET','/v1/drivers/'.$ownDriver,null,'driver_a');checkQa('deactivated driver token cannot keep accessing API',$status===401,$status);}
  finally {$qaDriverUser->forceFill(['status'=>'active'])->saveQuietly();}
+ $driverMember=Fleetbase\Models\CompanyUser::where('company_uuid',$state['companies']['a']['uuid'])->where('user_uuid',$qaDriverUser->uuid)->firstOrFail();$oldMemberStatus=$driverMember->status;
+ try{$driverMember->forceFill(['status'=>'inactive'])->saveQuietly();[$status]=callQa('GET','/v1/drivers/'.$ownDriver,null,'driver_a');checkQa('driver current membership removal denies retained profile token',$status===403,$status);}
+ finally{$driverMember->forceFill(['status'=>$oldMemberStatus])->saveQuietly();}
 }
 if(isset($tokens['staff_driver_a'])){
  [$status]=callQa('GET','/v1/drivers/'.$state['users']['staff_driver_a']['driver_public_id'],null,'staff_driver_a');checkQa('staff-linked driver retains own profile access',$status===200,$status);
@@ -104,6 +125,10 @@ if(isset($tokens['staff_driver_a'])){
 $qaApiKey=Fleetbase\Models\ApiCredential::create(['company_uuid'=>$state['users']['owner_a']['company_uuid'],'user_uuid'=>$state['users']['owner_a']['uuid'],'name'=>'Release QA key lifecycle','test_mode'=>false]);
 $tokens['key_lifecycle']=$qaApiKey->fresh()->key;
 [$status]=callQa('GET','/v1/places',null,'key_lifecycle');checkQa('ordinary organization API credential retains permitted reads',$status===200,$status);
+$creator=Fleetbase\Models\User::findOrFail($state['users']['owner_a']['uuid']);$creator->forceFill(['status'=>'inactive'])->saveQuietly();
+try {[$status]=callQa('GET','/v1/places',null,'key_lifecycle');checkQa('legacy key cannot outlive disabled creating account',$status===401,$status);}
+finally {$creator->forceFill(['status'=>'active'])->saveQuietly();}
+[$status]=callQa('GET','/v1/places',null,'key_lifecycle');checkQa('legacy key creator restoration preserves valid access',$status===200,$status);
 $qaApiKey->forceFill(['expires_at'=>now()->subMinute()])->save();
 [$status]=callQa('GET','/v1/places',null,'key_lifecycle');checkQa('expired organization API credential rejected',$status===401,$status);
 $qaApiKey->forceFill(['expires_at'=>null])->save();$qaApiKey->delete();
@@ -117,6 +142,10 @@ foreach(['driver_a'=>'owner_a','driver_a_other'=>'owner_a','driver_b'=>'owner_b'
  if(in_array($status,[200,201])&&$id)$orders[$actor]=$id;
 }
 if(isset($tokens['driver_a'],$orders['driver_a'],$orders['driver_a_other'],$orders['driver_b'])){
+ foreach(['driver_a','staff_driver_a'] as $actor){
+  [$status,,$raw]=callQa('GET','/int/v1/orders?limit=100',null,$actor);
+  checkQa($actor.' profile token cannot inherit console order permissions',$status===403&&!str_contains($raw,$orders['driver_a_other']),$status);
+ }
  [$status,$data,$raw]=callQa('GET','/v1/orders/'.$orders['driver_a'],null,'driver_a');checkQa('driver can read own assigned order',$status===200&&str_contains($raw,$orders['driver_a']),$status);
  foreach(['driver_a_other','driver_b'] as $actor){
   [$status,$data,$raw]=callQa('GET','/v1/orders/'.$orders[$actor],null,'driver_a');checkQa('driver cannot read order assigned to '.$actor,$status===403&&!str_contains($raw,$orders[$actor]),$status);

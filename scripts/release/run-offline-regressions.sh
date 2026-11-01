@@ -12,6 +12,7 @@ run_test() {
 run_test auth request-validation-test.php
 run_test auth token-login-test.php
 run_test auth api-token-lifetime-test.php
+run_test auth account-session-test.php
 run_test auth proof-image-test.php
 run_test auth sms-log-privacy-test.php
 run_test brevo brevo-transport-test.php

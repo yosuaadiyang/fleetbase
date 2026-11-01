@@ -108,7 +108,7 @@ try {
     $inactive = User::findOrFail($state['users']['viewer_a']['uuid']);
     try {
         $inactive->status = 'inactive'; $inactive->saveQuietly();
-        [$code] = chatCall('GET', 'chat-channels/' . $id, null, 'viewer_a'); chatCheck('inactive user cannot read retained room membership', $code === 403, $code);
+        [$code] = chatCall('GET', 'chat-channels/' . $id, null, 'viewer_a'); chatCheck('inactive user cannot read retained room membership', $code === 401, $code);
     } finally { $inactive->status = 'active'; $inactive->saveQuietly(); }
     [$code] = chatCall('DELETE', 'chat-channels/remove-participant/' . $added['id'], null, 'driver_a_other'); chatCheck('member may leave own room', $code === 200, $code);
     [$code] = chatCall('GET', 'chat-channels/' . $id, null, 'driver_a_other'); chatCheck('leaving room immediately revokes API access', $code === 403, $code);

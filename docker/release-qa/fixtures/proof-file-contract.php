@@ -77,6 +77,16 @@ try {
         proofCheck('driver reassignment revokes already minted image URL', $code === 404);
     } finally { $order->forceFill(['driver_assigned_uuid' => $oldDriver])->saveQuietly(); }
     $member = CompanyUser::where('company_uuid', $driver->company_uuid)->where('user_uuid', $state['users']['viewer_a']['uuid'])->firstOrFail();
+    $driverMember = CompanyUser::where('company_uuid', $driver->company_uuid)->where('user_uuid', $state['users']['driver_a']['uuid'])->firstOrFail();
+    $driverMemberStatus = $driverMember->status;
+    $driverImageUrl = proofUrl($file, 'driver_a');
+    try {
+        $driverMember->forceFill(['status' => 'inactive'])->saveQuietly();
+        [$code] = proofCall('GET', $driverImageUrl);
+        proofCheck('driver membership removal revokes already minted POD image URL', $code === 404);
+        [$code] = proofCall('GET', '/v1/orders/' . $order->public_id . '/proofs', null, 'driver_a');
+        proofCheck('driver membership removal also denies fresh proof listing', $code === 403);
+    } finally { $driverMember->forceFill(['status' => $driverMemberStatus])->saveQuietly(); }
     $oldStatus = $member->status;
     try {
         $member->forceFill(['status' => 'inactive'])->saveQuietly();
