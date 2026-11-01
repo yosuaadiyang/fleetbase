@@ -150,7 +150,32 @@ module('Integration | responsive navigation sidebar', function (hooks) {
         for (const control of controls) {
             const bounds = control.getBoundingClientRect();
             assert.true(bounds.left >= 0 && bounds.right <= 390, `${control.textContent.trim()} stays reachable without horizontal scrolling`);
+            const hit = doc.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+            assert.true(control === hit || control.contains(hit), `${control.textContent.trim()} receives a real center click`);
         }
+        const header = doc.querySelector('.next-view-section-subheader').getBoundingClientRect();
+        const toolbar = doc.querySelector('.next-view-section-subheader-actions').getBoundingClientRect();
+        assert.true(toolbar.bottom <= header.bottom, 'header grows around wrapped toolbar so table cannot cover its actions');
+        // Test both sides of the drawer breakpoint with actual compiled CSS.
+        for (const width of [320, 767, 768, 1023, 1366]) {
+            frame.style.width = `${width}px`;
+            this.media.isMobile = width < 768;
+            await settled();
+            const viewportWidth = frame.contentWindow.innerWidth;
+            assert.strictEqual(viewportWidth, width);
+            for (const control of controls) {
+                const bounds = control.getBoundingClientRect();
+                const hit = doc.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+                assert.true(bounds.left >= 0 && bounds.right <= width, `${width}px: ${control.textContent.trim()} fits`);
+                assert.true(control === hit || control.contains(hit), `${width}px: ${control.textContent.trim()} receives a real click`);
+            }
+            const headerBounds = doc.querySelector('.next-view-section-subheader').getBoundingClientRect();
+            const toolbarBounds = doc.querySelector('.next-view-section-subheader-actions').getBoundingClientRect();
+            assert.true(toolbarBounds.bottom <= headerBounds.bottom, `${width}px: toolbar stays inside header`);
+        }
+        frame.style.width = '390px';
+        this.media.isMobile = true;
+        await settled();
         this.sidebar.toggle();
         await settled();
         assert.strictEqual(style().position, 'absolute');

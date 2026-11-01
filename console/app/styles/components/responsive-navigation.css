@@ -31,11 +31,34 @@
         min-width: 0;
     }
 
+    /* Empty-state actions must fit the viewport even when table columns scroll. */
+    body.fleetbase-console .next-table-empty-state {
+        position: sticky;
+        left: 0;
+        width: min(100vw, 100%);
+        max-width: min(34rem, 100vw);
+        margin-left: 0;
+        margin-right: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    body.fleetbase-console .next-table-empty-state-content,
+    body.fleetbase-console .next-table-empty-state-actions {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
+/* A visible tablet sidebar also leaves too little room for one toolbar row. */
+@media (max-width: 1023px) {
     /* Keep page navigation/actions reachable after closing the drawer. */
     body.fleetbase-console .next-view-section-subheader {
+        display: flex;
         flex-direction: column;
         align-items: stretch;
         height: auto;
+        max-height: none;
         min-height: 6rem;
         flex: 0 0 auto;
     }
@@ -70,23 +93,5 @@
         flex: 1 1 100%;
         width: 100%;
         min-width: 0;
-    }
-
-    /* Empty-state actions must fit the viewport even when table columns scroll. */
-    body.fleetbase-console .next-table-empty-state {
-        position: sticky;
-        left: 0;
-        width: min(100vw, 100%);
-        max-width: min(34rem, 100vw);
-        margin-left: 0;
-        margin-right: 0;
-        white-space: normal;
-        overflow-wrap: anywhere;
-    }
-
-    body.fleetbase-console .next-table-empty-state-content,
-    body.fleetbase-console .next-table-empty-state-actions {
-        min-width: 0;
-        max-width: 100%;
     }
 }
