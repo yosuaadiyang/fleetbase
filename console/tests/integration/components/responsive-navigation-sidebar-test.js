@@ -4,13 +4,14 @@ import { render, settled, clearRender } from '@ember/test-helpers';
 import { hbs } from 'ember-cli-htmlbars';
 import Service from '@ember/service';
 import { tracked } from '@glimmer/tracking';
+import Evented from '@ember/object/evented';
 
 module('Integration | responsive navigation sidebar', function (hooks) {
     setupRenderingTest(hooks);
     hooks.beforeEach(function () {
         this.owner.register(
             'service:media',
-            class extends Service {
+            class extends Service.extend(Evented) {
                 @tracked isMobile = false;
             }
         );
@@ -91,13 +92,33 @@ module('Integration | responsive navigation sidebar', function (hooks) {
 
     test('mobile CSS gives the workspace and opened drawer the full viewport', async function (assert) {
         this.media.isMobile = true;
+        this.noop = () => {};
         await render(hbs`
             <iframe title="Synthetic mobile navigation layout" style="width:390px;height:509px;border:0"></iframe>
             {{#if this.frameBody}}
                 {{#in-element this.frameBody insertBefore=null}}
                     <main class="next-view-container">
                         <ResponsiveNavigationSidebar />
-                        <section class="next-view-section"><button type="button">Synthetic workspace action</button></section>
+                        <section class="next-view-section">
+                            <Layout::Section::Header @title="Service Rates" @onSearch={{this.noop}}>
+                                <Button @text="Filter" @onClick={{this.noop}} />
+                                <Button @text="Columns" @onClick={{this.noop}} />
+                                <Button @text="Refresh" @onClick={{this.noop}} />
+                                <Button @text="New" @onClick={{this.noop}} />
+                            </Layout::Section::Header>
+                            <div class="next-table-wrapper">
+                                <table style="width:600px"><tbody><tr><td class="next-table-empty-state-cell">
+                                    <Table::EmptyState
+                                        @title="Set up your first service rate"
+                                        @description="Synthetic layout only; no records are created."
+                                        @primaryText="New service rate"
+                                        @primaryAction={{this.noop}}
+                                        @secondaryText="Refresh"
+                                        @secondaryAction={{this.noop}}
+                                    />
+                                </td></tr></tbody></table>
+                            </div>
+                        </section>
                     </main>
                 {{/in-element}}
             {{/if}}
@@ -124,6 +145,12 @@ module('Integration | responsive navigation sidebar', function (hooks) {
         assert.strictEqual(frame.contentWindow.innerWidth, 390);
         assert.strictEqual(style().visibility, 'hidden', 'initial drawer cannot cover workspace or receive focus');
         assert.strictEqual(Math.round(workspace.getBoundingClientRect().width), 390, 'workspace uses the mobile width');
+        const controls = doc.querySelectorAll('.next-view-section-subheader-actions button, .next-table-empty-state-actions button');
+        assert.strictEqual(controls.length, 6);
+        for (const control of controls) {
+            const bounds = control.getBoundingClientRect();
+            assert.true(bounds.left >= 0 && bounds.right <= 390, `${control.textContent.trim()} stays reachable without horizontal scrolling`);
+        }
         this.sidebar.toggle();
         await settled();
         assert.strictEqual(style().position, 'absolute');
