@@ -1,0 +1,33 @@
+/* Mobile navigation is a drawer, not a 220px column squeezing the workspace. */
+@media (max-width: 767px) {
+    body.fleetbase-console .next-view-container > .next-sidebar {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0;
+        margin-right: 0;
+        z-index: 999;
+        opacity: 1;
+    }
+
+    body.fleetbase-console .next-view-container > .next-sidebar:is(.sidebar-hide, .sidebar-hidden) {
+        transform: translateX(-100%);
+        pointer-events: none;
+        visibility: hidden;
+    }
+
+    body.fleetbase-console .next-view-container > .next-sidebar:not(.sidebar-hide, .sidebar-hidden) {
+        transform: translateX(0);
+        visibility: visible;
+    }
+
+    body.fleetbase-console .next-view-container > .next-sidebar > .gutter {
+        display: none;
+    }
+
+    body.fleetbase-console .next-view-container > .next-view-section {
+        width: 100%;
+        min-width: 0;
+    }
+}
