@@ -28,7 +28,7 @@ class AuthenticateOnceWithBasicAuth
                 return response()->json(['errors' => ['Authentication required.']], 401);
             }
             $tokenName = $request->attributes->get('contrust.token_name');
-            $profileSession = $user->isType('driver') || (is_string($tokenName) && Str::isUuid($tokenName) && $tokenName !== $user->uuid);
+            $profileSession = \App\Support\ActiveAccountSession::driverProfile($user, $tokenName);
             if (!\App\Support\ActiveAccountSession::allows($user, session('company'), $profileSession)) {
                 return response()->json(['errors' => ['Organization access unavailable.']], 403);
             }

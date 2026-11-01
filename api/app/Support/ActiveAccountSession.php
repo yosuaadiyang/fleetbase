@@ -4,10 +4,18 @@ namespace App\Support;
 
 use Fleetbase\Models\User;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /** Revalidate offboarding on each request, including existing bearer sessions. */
 final class ActiveAccountSession
 {
+    public static function driverProfile(User $user, $token): bool
+    {
+        // Cookie-authenticated Sanctum uses a TransientToken without `name`.
+        $name = $token instanceof PersonalAccessToken ? $token->name : (is_string($token) ? $token : null);
+        return $user->isType('driver') || (is_string($name) && Str::isUuid($name) && $name !== $user->uuid);
+    }
+
     public static function allows(User $user, $company, bool $requireMembership = false): bool
     {
         if (!is_string($company) || !Str::isUuid($company)) return false;

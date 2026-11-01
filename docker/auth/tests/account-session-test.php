@@ -58,4 +58,13 @@ $db->table('company_users')->insert(['uuid' => 'membership-two', 'user_uuid' => 
 accountCheck(accountAllowed($user, $foreign), 'a separately active membership can serve a company-scoped key');
 $db->table('company_users')->where('uuid', 'membership-two')->update(['status' => 'inactive']);
 accountCheck(!accountAllowed($user, $foreign), 'that company-scoped access stops when revoked');
+accountCheck(!ActiveAccountSession::driverProfile($user, new Laravel\Sanctum\TransientToken()), 'cookie token has no profile name and remains a normal staff session');
+accountCheck(!ActiveAccountSession::driverProfile($user, new Laravel\Sanctum\PersonalAccessToken(['name' => $uuid])), 'own user UUID identifies a staff PAT');
+$profile = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+accountCheck(ActiveAccountSession::driverProfile($user, new Laravel\Sanctum\PersonalAccessToken(['name' => $profile])), 'distinct profile UUID constrains a staff-linked driver PAT');
+accountCheck(ActiveAccountSession::driverProfile($user, $profile), 'public API token-name marker has the same profile boundary');
+accountCheck(!ActiveAccountSession::driverProfile($user, 'qa-staff-session'), 'ordinary legacy staff token names are preserved');
+accountCheck(!ActiveAccountSession::driverProfile($user, (object) ['name' => $profile]), 'unrelated token objects are not read as named PATs');
+$user->type = 'driver';
+accountCheck(ActiveAccountSession::driverProfile($user, null), 'managed account cannot acquire console permissions through a missing name');
 echo json_encode(['passed' => $checks, 'failed' => 0, 'database' => 'synthetic-sqlite-memory', 'query_only_enforced' => true, 'network_used' => false]), PHP_EOL;

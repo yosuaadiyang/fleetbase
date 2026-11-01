@@ -16,8 +16,7 @@ class AuthorizationGuard
         if (!$user instanceof User || $user->status !== 'active') {
             return response()->json(['errors' => ['Authentication required.']], 401);
         }
-        $tokenName = $user->currentAccessToken()?->name;
-        if ($user->isType('driver') || (is_string($tokenName) && \Illuminate\Support\Str::isUuid($tokenName) && $tokenName !== $user->uuid)) {
+        if (\App\Support\ActiveAccountSession::driverProfile($user, $user->currentAccessToken())) {
             return response()->json(['errors' => ['Use the assigned driver API.']], 403);
         }
         if (!\App\Support\ActiveAccountSession::allows($user, session('company'))) {
