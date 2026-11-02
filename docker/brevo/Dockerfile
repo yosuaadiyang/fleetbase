@@ -3,7 +3,8 @@ FROM fleetbase/fleetbase-api:v0.7.68@sha256:dc42bcfeadf22e4579dd0a2e68fa95ad9d1e
 RUN echo '70d794cabbb4076fdb1df4755a62c1c323b60ed37bc023b915c97e4bcf7012be  /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/OSRM.php' | sha256sum --check \
     && echo 'c0c452093d7747af8cceea6cccdd971cd63c3a72c2436264b484d37f320f07c8  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/LoginRequest.php' | sha256sum --check \
     && echo '2c93220e757c4f0c49c6715bd1586082676ab53a1cc067b38ef11dc6ee2eda0d  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/SignUpRequest.php' | sha256sum --check \
-    && echo 'd095f9e707db5df69a6872a9494320d50d586fe12b83380aa136f67aa8b952d7  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/TwoFaValidationRequest.php' | sha256sum --check
+    && echo 'd095f9e707db5df69a6872a9494320d50d586fe12b83380aa136f67aa8b952d7  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Requests/TwoFaValidationRequest.php' | sha256sum --check \
+    && echo '392c5c5f442fe7b99e73ba500aaabcc8adb5b056a996ba446199cca8c5701694  /fleetbase/api/vendor/fleetbase/core-api/src/Models/LoginAttempt.php' | sha256sum --check
 COPY docker/routing/api/OSRM.php /fleetbase/api/vendor/fleetbase/fleetops-api/server/src/Support/OSRM.php
 RUN echo '4ca14e767c2155b4d848ce3b70cb9afe65870e432c2623535985fa34b1f971ac  /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/AuthController.php' | sha256sum --check
 COPY docker/auth/controllers/AuthController.php /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/AuthController.php
@@ -140,5 +141,11 @@ RUN echo 'ea34e1f39005f52e95dc97d2cb126bb56232721448400b0a23abc15897221913  /fle
 RUN echo '1704ce469d04f7b11891b60bbd7bfb66158045c7eefc724542bf55f126732155  /fleetbase/api/vendor/fleetbase/core-api/src/Models/ChatChannel.php' | sha256sum --check
 RUN echo '9ffe66abf54d921cdcff7cc1e176d4d11ef780f20dd4852ef2bf41e38bef569d  /fleetbase/api/vendor/fleetbase/core-api/src/routes.php' | sha256sum --check
 COPY docker/chat/core/ /fleetbase/api/vendor/fleetbase/core-api/src/
+# Preserve a single build layer for the guard and its temporary fixture.
+COPY docker/privacy/LoginAttempt.php docker/privacy/tests/login-password-persistence-test.php /tmp/contrust-privacy/
 RUN php -l /fleetbase/api/vendor/fleetbase/core-api/src/Support/ChatFeedPagination.php \
-    && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/ChatChannelController.php
+    && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Http/Controllers/Internal/v1/ChatChannelController.php \
+    && cp /tmp/contrust-privacy/LoginAttempt.php /fleetbase/api/vendor/fleetbase/core-api/src/Models/LoginAttempt.php \
+    && php -l /fleetbase/api/vendor/fleetbase/core-api/src/Models/LoginAttempt.php \
+    && php /tmp/contrust-privacy/login-password-persistence-test.php \
+    && rm -rf /tmp/contrust-privacy

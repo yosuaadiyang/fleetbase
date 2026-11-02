@@ -55,13 +55,27 @@ final class AccountDataInventory
         $contacts = $this->ids('contacts', ['user_uuid' => $user]);
         $participants = $this->ids('chat_participants', ['user_uuid' => $user, 'company_user_uuid' => $members]);
         $messages = $this->ids('chat_messages', ['sender_uuid' => $participants]);
+        $attachments = $this->ids('chat_attachments', ['chat_message_uuid' => $messages, 'sender_uuid' => $participants]);
         $identities = array_values(array_unique(array_merge($user, $members, $drivers, $contacts)));
+        $accessTokens = $this->values('personal_access_tokens', 'id', ['tokenable_id' => $identities]);
         $work = ['driver_uuid' => $drivers, 'reported_by_uuid' => $user, 'created_by_uuid' => $user];
         $orders = $this->ids('orders', ['driver_assigned_uuid' => $drivers, 'customer_uuid' => $contacts, 'created_by_uuid' => $user]);
         $issues = $this->ids('issues', $work);
         $fuel = $this->ids('fuel_reports', $work);
         $proofs = $this->ids('proofs', ['order_uuid' => $orders, 'subject_uuid' => $identities]);
-        $subjects = array_values(array_unique(array_merge($identities, $orders, $issues, $fuel, $proofs, $messages)));
+        // A staff-uploaded/legacy file may have neither this account as its
+        // uploader nor the proof/user as its polymorphic subject. Follow the
+        // actual foreign references before an identity cleanup can remove them.
+        $linkedFiles = array_values(array_unique(array_merge(
+            $this->values('proofs', 'file_uuid', ['uuid' => $proofs]),
+            $this->values('users', 'avatar_uuid', ['uuid' => $user]),
+            $this->values('contacts', 'photo_uuid', ['uuid' => $contacts]),
+            $this->values('chat_attachments', 'file_uuid', ['uuid' => $attachments]),
+        )));
+        if ($linkedFiles !== [] && !in_array('uuid', $this->columns['files'] ?? [], true)) {
+            $this->relationshipGaps[] = 'files.uuid';
+        }
+        $subjects = array_values(array_unique(array_merge($identities, $orders, $issues, $fuel, $proofs, $messages, $attachments, $linkedFiles)));
         if (count($subjects) > self::MAX_RELATED_IDS) {
             throw new RuntimeException('Inventory scope exceeds the bounded review limit; use a reviewed paginated inventory.');
         }
@@ -74,6 +88,7 @@ final class AccountDataInventory
             // Polymorphic type is deliberately not inferred here. These counts
             // are possible matches for review, never authority to delete tokens.
             'personal_access_tokens' => ['tokenable_id' => $identities],
+            'notifications' => ['notifiable_id' => $identities],
             'user_devices' => ['user_uuid' => $user],
             'contrust_push_devices' => ['user_uuid' => $user],
             'contrust_chat_consents' => ['user_uuid' => $user],
@@ -87,10 +102,17 @@ final class AccountDataInventory
             'chat_participants' => ['uuid' => $participants],
             'chat_messages' => ['uuid' => $messages],
             'chat_receipts' => ['chat_participant_uuid' => $participants, 'participant_uuid' => $participants],
-            'chat_attachments' => ['chat_message_uuid' => $messages],
+            'chat_attachments' => ['uuid' => $attachments, 'chat_message_uuid' => $messages, 'sender_uuid' => $participants],
+            'chat_logs' => ['initiator_uuid' => $participants],
             'comments' => ['author_uuid' => array_merge($user, $members), 'subject_uuid' => $subjects],
-            'files' => ['uploader_uuid' => array_merge($user, $members), 'subject_uuid' => $subjects],
+            'files' => ['uuid' => $linkedFiles, 'uploader_uuid' => array_merge($user, $members), 'subject_uuid' => $subjects],
             'activity_log' => ['causer_id' => $identities, 'subject_id' => $subjects],
+            'activity' => ['causer_id' => $identities, 'subject_id' => $subjects],
+            'ai_admin_access_logs' => ['viewed_by_uuid' => $user],
+            'report_audit_logs' => ['user_uuid' => $user],
+            'geofence_events_log' => ['driver_uuid' => $drivers, 'subject_uuid' => $identities],
+            'api_request_logs' => ['access_token_id' => $accessTokens],
+            'webhook_request_logs' => ['access_token_id' => $accessTokens],
         ];
         $tables = [];
         foreach ($queries as $table => $selectors) {
@@ -113,6 +135,7 @@ final class AccountDataInventory
                 'Personal information embedded in shared records, JSON, free text and files uploaded by other users',
                 'Storage originals, derivatives, cache and orphaned objects; file rows alone are insufficient',
                 'All relevant database schemas, external provider copies and encrypted backup snapshots',
+                'Historical logs after token deletion, email-based login/reset records, indirect references and embedded identities not discovered by current foreign links',
                 'Exact scoped deletion/redaction approval followed by independent result verification',
             ],
         ];
@@ -164,18 +187,30 @@ final class AccountDataInventory
 
     private function ids(string $table, array $selectors): array
     {
+        return $this->values($table, 'uuid', $selectors);
+    }
+
+    private function values(string $table, string $column, array $selectors): array
+    {
         $where = $this->where($table, $selectors);
-        if ($where === null || !in_array('uuid', $this->columns[$table], true)) {
-            $this->relationshipGaps[] = $table;
+        if ($where === null || !in_array($column, $this->columns[$table] ?? [], true)) {
+            $this->relationshipGaps[] = $column === 'uuid' ? $table : $table . '.' . $column;
             return [];
         }
-        $query = $this->db->prepare('SELECT DISTINCT uuid FROM `' . $table . '` WHERE ' . $where[0] . ' LIMIT ' . (self::MAX_RELATED_IDS + 1));
+        // The selectable column must be present in validated metadata above.
+        $query = $this->db->prepare('SELECT DISTINCT `' . $column . '` FROM `' . $table . '` WHERE ' . $where[0]
+            . ' AND `' . $column . '` IS NOT NULL LIMIT ' . (self::MAX_RELATED_IDS + 1));
         $query->execute($where[1]);
         $ids = $query->fetchAll(PDO::FETCH_COLUMN);
         if (count($ids) > self::MAX_RELATED_IDS) {
             throw new RuntimeException('Inventory relationship exceeds the bounded review limit.');
         }
 
-        return array_values(array_filter($ids, static fn ($id) => is_string($id) && $id !== ''));
+        // MySQL/SQLite may return integer primary keys as native ints. Keep
+        // those references (e.g. access_token_id) without reading token values.
+        return array_values(array_map(
+            static fn ($id) => (string) $id,
+            array_filter($ids, static fn ($id) => (is_string($id) && $id !== '') || (is_int($id) && $id >= 0)),
+        ));
     }
 }
