@@ -16,6 +16,11 @@ final class ChatSafety
 
     public static function enabled(): bool { return config('contrust.chat_safety_enabled') === true; }
 
+    public static function policyVersion(): string
+    {
+        return OperationalReports::enabled() ? OperationalReports::POLICY_VERSION : self::VERSION;
+    }
+
     /** Block and contribution checks share this lock, including the actual write. */
     public static function synchronized(string $company, \Closure $write)
     {
@@ -29,8 +34,8 @@ final class ChatSafety
     {
         if (!self::enabled()) return null;
         $accepted = DB::table('contrust_chat_consents')->where('company_uuid', $company ?? $user->company_uuid)
-            ->where('user_uuid', $user->uuid)->where('policy_version', self::VERSION)->exists();
-        return $accepted ? null : self::reply(['code' => 'CHAT_POLICY_REQUIRED', 'policy_version' => self::VERSION,
+            ->where('user_uuid', $user->uuid)->where('policy_version', self::policyVersion())->exists();
+        return $accepted ? null : self::reply(['code' => 'CHAT_POLICY_REQUIRED', 'policy_version' => self::policyVersion(),
             'errors' => ['Read and accept the current communication policy before contributing.']], 428);
     }
 
@@ -66,23 +71,24 @@ final class ChatSafety
         if ($after !== null) $query->where('public_id', '>', $after);
         $blocked = $query->limit(101)->get(['uuid', 'public_id']); $more = $blocked->count() > 100; $blocked = $blocked->take(100);
         $activeNames = OrganizationChat::members($company)->whereIn('uuid', $blocked->pluck('uuid'))->pluck('name', 'uuid');
-        return ['enabled' => true, 'policy_version' => self::VERSION, 'policy_url' => 'https://contrust.website/terms',
-            'consented' => $consent && $consent->policy_version === self::VERSION,
+        return ['enabled' => true, 'policy_version' => self::policyVersion(), 'policy_url' => 'https://contrust.website/terms',
+            'consented' => $consent && $consent->policy_version === self::policyVersion(),
             'accepted_at' => $consent?->accepted_at,
             'moderator' => self::moderator($actor),
             'blocked_users' => $blocked->map(fn ($person) => ['id' => $person->public_id, 'name' => $activeNames[$person->uuid] ?? 'Former member'])->all(),
             'blocked_has_more' => $more, 'blocked_next_cursor' => $more ? $blocked->last()->public_id : null,
-            'block_scope' => 'direct_messages_and_new_invitations', 'shared_groups_remain_visible' => true];
+            'block_scope' => 'direct_messages_and_new_invitations', 'shared_groups_remain_visible' => true]
+            + (OperationalReports::enabled() ? ['operational_report_types' => OperationalReportContext::TYPES] : []);
     }
 
     public static function consent(array $actor, array $input): JsonResponse
     {
-        if (!ChatSafetyInput::consent($input)) return self::invalid();
+        if (!ChatSafetyInput::consent($input, self::policyVersion())) return self::invalid();
         $key = ['company_uuid' => $actor['company']->uuid, 'user_uuid' => $actor['user']->uuid];
         $old = DB::table('contrust_chat_consents')->where($key)->first();
-        if (!$old || $old->policy_version !== self::VERSION) DB::table('contrust_chat_consents')->updateOrInsert($key,
-            ['policy_version' => self::VERSION, 'accepted_at' => now()]);
-        return self::reply(['consented' => true, 'policy_version' => self::VERSION]);
+        if (!$old || $old->policy_version !== self::policyVersion()) DB::table('contrust_chat_consents')->updateOrInsert($key,
+            ['policy_version' => self::policyVersion(), 'accepted_at' => now()]);
+        return self::reply(['consented' => true, 'policy_version' => self::policyVersion()]);
     }
 
     public static function block(array $actor, array $input, bool $remove): JsonResponse

@@ -30,7 +30,7 @@ class AuthorizationGuard
 
         $proceed = function () use ($request, $user, $next) {
             if ($response = \App\Support\InternalChatAccess::check($request, $user)) return $response;
-            return $next($request);
+            return \App\Support\OperationalContribution::handle($request, $user, $next);
         };
         if (\App\Support\ChatSafety::enabled() && \App\Support\InternalChatAccess::kind($request)
             && !in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true) && is_string(session('company'))) {

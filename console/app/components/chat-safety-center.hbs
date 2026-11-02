@@ -19,7 +19,8 @@
                         disabled={{this.chatSafety.busy}}
                         {{on "click" (fn this.confirm row)}}
                     >Buka blokir pengguna</button>
-                {{else}}<p>Alasan: {{row.reason}} · Status: {{row.status}}</p><p>{{row.context.target.name}}</p><blockquote
+                {{else}}<p>Jenis konten: {{row.contentLabel}}</p>{{#if row.context.message.id}}<p>Referensi: {{row.context.message.id}}</p>{{/if}}{{#if row.context.order_id}}<p>Order:
+                            {{row.context.order_id}}</p>{{/if}}<p>Alasan: {{row.reason}} · Status: {{row.status}}</p><p>{{row.context.target.name}}</p><blockquote
                         class="contrust-chat-report-preview"
                     >{{row.context.message.content}}</blockquote><p>{{row.context.details}}</p>
                     <button type="button" disabled={{this.chatSafety.busy}} {{on "click" (fn this.confirm row)}}>Catat hasil review</button>{{/if}}

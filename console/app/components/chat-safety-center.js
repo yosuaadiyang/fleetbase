@@ -57,7 +57,20 @@ export default class ChatSafetyCenterComponent extends Component {
             if (this.current(operation))
                 this.panel = {
                     ...this.panel,
-                    rows: kind === 'reports' ? page.reports : page.blocked_users,
+                    rows:
+                        kind === 'reports'
+                            ? page.reports.map((row) => ({
+                                  ...row,
+                                  contentLabel: {
+                                      user: 'Pengguna',
+                                      message: 'Pesan chat',
+                                      order_comment: 'Komentar order',
+                                      issue: 'Laporan kendala',
+                                      fuel_report: 'Laporan bahan bakar',
+                                      proof: 'Referensi POD',
+                                  }[row.context.type],
+                              }))
+                            : page.blocked_users,
                     next: kind === 'reports' ? page.next_cursor : page.blocked_next_cursor,
                     loading: false,
                 };

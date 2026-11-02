@@ -29,6 +29,12 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->routes(
             function () {
+                Route::prefix('/int/v1/contrust/content-safety')->middleware(['fleetbase.api'])->group(function () {
+                    $controller = \App\Http\Controllers\OperationalSafetyController::class;
+                    Route::get('/', [$controller, 'status']);
+                    Route::get('/preview', [$controller, 'preview']);
+                    Route::post('/reports', [$controller, 'report']);
+                });
                 Route::prefix('/int/v1/contrust/chat-safety')->group(function () {
                     $controller = \App\Http\Controllers\ChatSafetyController::class;
                     Route::get('/', [$controller, 'status']);

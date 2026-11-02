@@ -55,7 +55,8 @@ module('Integration | Component | Contrust chat safety', function (hooks) {
     });
     hooks.afterEach(function () {
         for (const key of Object.keys(window.sessionStorage))
-            if (key.startsWith('contrust:chat-report:') && decodeURIComponent(key).includes('api.contrust.example.test')) window.sessionStorage.removeItem(key);
+            if ((key.startsWith('contrust:chat-report:') || key.startsWith('contrust:operational-report:')) && decodeURIComponent(key).includes('api.contrust.example.test'))
+                window.sessionStorage.removeItem(key);
     });
     test('policy renders an unchecked decision and sends only after explicit confirmation', async function (assert) {
         this.handler = (_url, options) => (options.method === 'POST' ? response({ consented: true, policy_version: this.server.policy_version }) : response(this.server));
@@ -216,5 +217,84 @@ module('Integration | Component | Contrust chat safety', function (hooks) {
         await settled();
         assert.strictEqual(document.querySelectorAll('.contrust-chat-safety-dialog').length, 1);
         assert.strictEqual(this.writes.length, 0);
+    });
+    test('operational preview is escaped and needs independent consent, reason and sharing', async function (assert) {
+        this.server = state({ consented: true, policy_version: '2026-11-01.1', operational_report_types: ['order_comment', 'issue', 'fuel_report', 'proof'] });
+        const preview = {
+            type: 'issue',
+            target: 'issue_synthetic',
+            policy_version: '2026-11-01.1',
+            preview_receipt: 'eyJ2IjoxfQ.' + 'a'.repeat(64),
+            expires_in: 600,
+            context: {
+                type: 'issue',
+                target: { id: null, name: 'Unattributed' },
+                message: { id: 'issue_synthetic', content: '<img src=x onerror=alert(1)>' },
+                order_id: null,
+                policy_version: '2026-11-01.1',
+            },
+        };
+        this.handler = (url, options) =>
+            url.includes('/content-safety/preview') ? response(preview) : options.method === 'POST' ? response({ id, status: 'open' }, 201) : response(this.server);
+        await this.safety.refresh();
+        await render(hbs`<OperationalSafetyCenter />`);
+        await click('button');
+        await fillIn(dialog().querySelector('[aria-label="Jenis konten operasional"]'), 'issue');
+        await fillIn(dialog().querySelector('[aria-label="Referensi konten operasional"]'), 'issue_synthetic');
+        await click(button('Periksa pratinjau'));
+        assert.dom('.contrust-chat-report-preview', document).includesText('<img');
+        assert.dom('.contrust-chat-report-preview img', document).doesNotExist();
+        assert.strictEqual(this.writes.length, 0);
+        assert.dom(button('Konfirmasi kirim laporan konten')).isDisabled();
+        await fillIn(dialog().querySelector('[aria-label="Alasan laporan konten"]'), 'other');
+        assert.dom(button('Konfirmasi kirim laporan konten')).isDisabled();
+        await click(dialog().querySelector('input[type=checkbox]'));
+        await click(button('Konfirmasi kirim laporan konten'));
+        assert.strictEqual(this.writes.length, 1);
+        assert.strictEqual(this.writes[0].body.preview_receipt, preview.preview_receipt);
+        assert.strictEqual(this.writes[0].body.share_context, true);
+        assert.dom(dialog()).includesText('Laporan diterima pengelola organisasi.');
+    });
+    test('an uncertain operational report reopens its exact saved snapshot without an automatic POST', async function (assert) {
+        this.server = state({ consented: true, policy_version: '2026-11-01.1', operational_report_types: ['order_comment', 'issue', 'fuel_report', 'proof'] });
+        const preview = {
+            type: 'proof',
+            target: 'proof_synthetic',
+            policy_version: '2026-11-01.1',
+            preview_receipt: 'eyJ2IjoxfQ.' + 'b'.repeat(64),
+            expires_in: 600,
+            context: {
+                type: 'proof',
+                target: { id: null, name: 'Unattributed' },
+                message: { id: 'proof_synthetic', content: 'Reference only' },
+                order_id: 'order_synthetic',
+                policy_version: '2026-11-01.1',
+            },
+        };
+        let fail = true;
+        this.handler = (url, options) =>
+            url.includes('/content-safety/preview') ? response(preview) : options.method === 'POST' ? (fail ? response({}, 503) : response({ id, status: 'open' })) : response(this.server);
+        await this.safety.refresh();
+        await render(hbs`<OperationalSafetyCenter />`);
+        await click('button');
+        await fillIn(dialog().querySelector('[aria-label="Jenis konten operasional"]'), 'proof');
+        await fillIn(dialog().querySelector('[aria-label="Referensi konten operasional"]'), 'proof_synthetic');
+        await click(button('Periksa pratinjau'));
+        await fillIn(dialog().querySelector('[aria-label="Alasan laporan konten"]'), 'privacy');
+        await click(dialog().querySelector('input[type=checkbox]'));
+        await click(button('Konfirmasi kirim laporan konten'));
+        assert.strictEqual(this.writes.length, 1);
+        const first = this.writes[0].body;
+        await clearRender();
+        await render(hbs`<OperationalSafetyCenter />`);
+        await click('button');
+        await click(button('Referensi POD · proof_synthetic'));
+        assert.dom(dialog().querySelector('input[type=checkbox]')).isNotChecked();
+        assert.strictEqual(this.writes.length, 1);
+        await click(dialog().querySelector('input[type=checkbox]'));
+        fail = false;
+        await click(button('Konfirmasi kirim laporan konten'));
+        assert.strictEqual(this.writes.length, 2);
+        assert.deepEqual(this.writes[1].body, first);
     });
 });

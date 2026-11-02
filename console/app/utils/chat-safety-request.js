@@ -5,6 +5,8 @@ const actions = {
     block: ['POST', '/blocks'],
     unblock: ['DELETE', '/blocks'],
     report: ['POST', '/reports'],
+    contentPreview: ['GET', '/preview', 'content-safety'],
+    contentReport: ['POST', '/reports', 'content-safety'],
     reports: ['GET', '/reports'],
     review: ['PATCH', '/reports'],
 };
@@ -13,12 +15,16 @@ const uuid = (value) => typeof value === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4
 const reasons = ['harassment', 'threat', 'illegal', 'privacy', 'spam', 'other'];
 const exact = (value, fields) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every((key) => fields.includes(key));
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const contentTypes = ['order_comment', 'issue', 'fuel_report', 'proof'];
+const policyVersion = (value) => typeof value === 'string' && value.length <= 32 && /^\d{4}-\d{2}-\d{2}\.\d+$/.test(value);
+const receipt = (value) => typeof value === 'string' && value.length <= 1024 && /^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(value);
 const messages = {
     CHAT_SAFETY_UNAVAILABLE: 'Keamanan chat belum dapat diperiksa. Coba lagi.',
     CHAT_SAFETY_SESSION: 'Sesi chat berubah atau berakhir. Buka ulang halaman chat.',
     CHAT_POLICY_REQUIRED: 'Baca dan setujui syarat komunikasi terbaru sebelum mengirim.',
     CHAT_BLOCKED: 'Pesan langsung atau undangan tidak tersedia untuk peserta ini.',
     CHAT_REPORT_CONFLICT: 'Formulir laporan berubah. Periksa laporan sebelumnya sebelum membuat yang baru.',
+    CONTENT_REPORT_CHANGED: 'Konten atau masa berlaku pratinjau berubah. Periksa kembali sebelum membagikan konteks.',
 };
 
 export function chatSafetyError(code = 'CHAT_SAFETY_UNAVAILABLE') {
@@ -27,6 +33,19 @@ export function chatSafetyError(code = 'CHAT_SAFETY_UNAVAILABLE') {
 }
 
 function validInput(action, input) {
+    if (action === 'contentPreview') return exact(input, ['type', 'target']) && contentTypes.includes(input.type) && id(input.target);
+    if (action === 'contentReport')
+        return (
+            exact(input, ['request_id', 'type', 'target', 'reason', 'details', 'share_context', 'policy_version', 'preview_receipt']) &&
+            uuid(input.request_id) &&
+            contentTypes.includes(input.type) &&
+            id(input.target) &&
+            reasons.includes(input.reason) &&
+            (input.details === undefined || (typeof input.details === 'string' && Array.from(input.details).length <= 2000)) &&
+            input.share_context === true &&
+            policyVersion(input.policy_version) &&
+            receipt(input.preview_receipt)
+        );
     if (action === 'status') return exact(input, ['blocked_after']) && (input.blocked_after === undefined || id(input.blocked_after));
     if (action === 'reports') return exact(input, ['before']) && (input.before === undefined || uuid(input.before));
     if (action === 'review')
@@ -52,6 +71,36 @@ function validInput(action, input) {
 
 export const validChatSafetyReport = (input) => validInput('report', input);
 
+export const validOperationalReport = (input) => validInput('contentReport', input);
+
+export function validOperationalPreview(result, input) {
+    const context = result?.context;
+    return (
+        exact(result, ['type', 'target', 'context', 'policy_version', 'preview_receipt', 'expires_in']) &&
+        contentTypes.includes(input?.type) &&
+        id(input?.target) &&
+        result.type === input.type &&
+        result.target === input.target &&
+        policyVersion(result.policy_version) &&
+        receipt(result.preview_receipt) &&
+        Number.isInteger(result.expires_in) &&
+        result.expires_in > 0 &&
+        result.expires_in <= 600 &&
+        exact(context, ['type', 'target', 'message', 'order_id', 'policy_version']) &&
+        context.type === input.type &&
+        context.policy_version === result.policy_version &&
+        exact(context.target, ['id', 'name']) &&
+        (context.target.id === null || id(context.target.id)) &&
+        typeof context.target.name === 'string' &&
+        Array.from(context.target.name).length <= 255 &&
+        exact(context.message, ['id', 'content']) &&
+        context.message.id === input.target &&
+        typeof context.message.content === 'string' &&
+        Array.from(context.message.content).length <= 4000 &&
+        (context.order_id === null || id(context.order_id))
+    );
+}
+
 function validStatus(result) {
     if (!result || typeof result.enabled !== 'boolean') return false;
     if (!result.enabled) return Object.keys(result).length === 1;
@@ -67,7 +116,12 @@ function validStatus(result) {
         typeof result.blocked_has_more === 'boolean' &&
         (result.blocked_has_more ? id(result.blocked_next_cursor) : result.blocked_next_cursor === null) &&
         result.block_scope === 'direct_messages_and_new_invitations' &&
-        result.shared_groups_remain_visible === true
+        result.shared_groups_remain_visible === true &&
+        (!own(result, 'operational_report_types') ||
+            (Array.isArray(result.operational_report_types) &&
+                result.operational_report_types.length === 4 &&
+                new Set(result.operational_report_types).size === 4 &&
+                result.operational_report_types.every((type) => contentTypes.includes(type))))
     );
 }
 
@@ -86,13 +140,20 @@ function validReports(value) {
                 (row.resolution === null || ['no_violation', 'content_addressed', 'access_addressed', 'support_followup'].includes(row.resolution)) &&
                 typeof row.created_at === 'string' &&
                 row.context &&
-                ['user', 'message'].includes(row.context.type) &&
+                ['user', 'message', ...contentTypes].includes(row.context.type) &&
                 row.context.target &&
                 (row.context.target.id === null || id(row.context.target.id)) &&
                 typeof row.context.target.name === 'string' &&
+                Array.from(row.context.target.name).length <= 255 &&
                 typeof row.context.details === 'string' &&
                 Array.from(row.context.details).length <= 2000 &&
-                (row.context.message === null || (id(row.context.message?.id) && typeof row.context.message.content === 'string'))
+                (row.context.message === null || (id(row.context.message?.id) && typeof row.context.message.content === 'string')) &&
+                (!contentTypes.includes(row.context.type) ||
+                    (exact(row.context, ['type', 'target', 'message', 'order_id', 'policy_version', 'details']) &&
+                        row.context.message !== null &&
+                        Array.from(row.context.message.content).length <= 4000 &&
+                        (row.context.order_id === null || id(row.context.order_id)) &&
+                        policyVersion(row.context.policy_version)))
         )
     );
 }
@@ -112,7 +173,7 @@ export async function chatSafetyRequest({ host, sessionToken, action, input = {}
     )
         throw chatSafetyError();
     if (signal?.aborted) throw chatSafetyError('CHAT_SAFETY_SESSION');
-    const [method, path] = actions[action];
+    const [method, path, resource = 'chat-safety'] = actions[action];
     const controller = new AbortController();
     let rejectDeadline;
     const deadline = new Promise((_, reject) => {
@@ -131,15 +192,17 @@ export async function chatSafetyRequest({ host, sessionToken, action, input = {}
     const timer = setTimeout(abort, timeoutMs);
     try {
         const query =
-            action === 'status' && input.blocked_after
-                ? `?blocked_after=${encodeURIComponent(input.blocked_after)}`
-                : action === 'reports' && input.before
-                  ? `?before=${encodeURIComponent(input.before)}`
-                  : '';
+            action === 'contentPreview'
+                ? `?type=${encodeURIComponent(input.type)}&target=${encodeURIComponent(input.target)}`
+                : action === 'status' && input.blocked_after
+                  ? `?blocked_after=${encodeURIComponent(input.blocked_after)}`
+                  : action === 'reports' && input.before
+                    ? `?before=${encodeURIComponent(input.before)}`
+                    : '';
         const route = action === 'review' ? `${path}/${input.id}` : path;
         const payload = action === 'review' ? { status: input.status, resolution: input.resolution } : input;
         const response = await bounded(
-            fetchImpl(`${host.replace(/\/$/, '')}/int/v1/contrust/chat-safety${route}${query}`, {
+            fetchImpl(`${host.replace(/\/$/, '')}/int/v1/contrust/${resource}${route}${query}`, {
                 method,
                 signal: controller.signal,
                 redirect: 'error',
@@ -160,7 +223,8 @@ export async function chatSafetyRequest({ host, sessionToken, action, input = {}
             if (
                 (response.status === 428 && code === 'CHAT_POLICY_REQUIRED') ||
                 (response.status === 403 && code === 'CHAT_BLOCKED') ||
-                (response.status === 409 && code === 'CHAT_REPORT_CONFLICT')
+                (response.status === 409 && code === 'CHAT_REPORT_CONFLICT') ||
+                (response.status === 409 && code === 'CONTENT_REPORT_CHANGED')
             )
                 throw chatSafetyError(code);
             throw chatSafetyError();
@@ -169,15 +233,17 @@ export async function chatSafetyRequest({ host, sessionToken, action, input = {}
         const valid =
             action === 'status'
                 ? validStatus(result)
-                : action === 'reports'
-                  ? validReports(result)
-                  : action === 'review'
-                    ? result?.id === input.id && result.status === input.status
-                    : action === 'consent'
-                      ? result?.consented === true && result.policy_version === input.policy_version
-                      : action === 'report'
-                        ? uuid(result?.id) && ['open', 'reviewing', 'resolved', 'dismissed'].includes(result.status)
-                        : result?.user === input.user && result.blocked === (action === 'block');
+                : action === 'contentPreview'
+                  ? validOperationalPreview(result, input)
+                  : action === 'reports'
+                    ? validReports(result)
+                    : action === 'review'
+                      ? result?.id === input.id && result.status === input.status
+                      : action === 'consent'
+                        ? result?.consented === true && result.policy_version === input.policy_version
+                        : action === 'report' || action === 'contentReport'
+                          ? uuid(result?.id) && ['open', 'reviewing', 'resolved', 'dismissed'].includes(result.status)
+                          : result?.user === input.user && result.blocked === (action === 'block');
         if (!valid || controller.signal.aborted) throw chatSafetyError();
         return result;
     } catch (error) {

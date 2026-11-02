@@ -18,10 +18,10 @@ final class ChatSafetyInput
             && (!array_key_exists('blocked_after', $input) || self::publicId($input['blocked_after']));
     }
 
-    public static function consent(array $input): bool
+    public static function consent(array $input, string $version = ChatSafety::VERSION): bool
     {
         return !array_diff(array_keys($input), ['policy_version', 'accepted'])
-            && ($input['accepted'] ?? null) === true && ($input['policy_version'] ?? null) === ChatSafety::VERSION;
+            && ($input['accepted'] ?? null) === true && ($input['policy_version'] ?? null) === $version;
     }
 
     public static function block(array $input): bool

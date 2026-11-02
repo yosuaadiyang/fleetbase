@@ -164,6 +164,18 @@ export default class ChatSafetyService extends Service {
     report(input, marker = this.marker) {
         return this.perform('report', input, null, marker);
     }
+    previewOperationalContent(input, marker = this.marker) {
+        return this.request('contentPreview', input, marker);
+    }
+    reportOperationalContent(input, marker = this.marker) {
+        return this.perform('contentReport', input, null, marker);
+    }
+    async assertOperationalCanContribute() {
+        const marker = this.marker;
+        const value = await this.refresh();
+        this.assertCurrent(marker);
+        if (value.enabled && Array.isArray(value.operational_report_types) && !value.consented) throw chatSafetyError('CHAT_POLICY_REQUIRED');
+    }
     getBlockedPage(after = null, marker = this.marker) {
         return this.request('status', after === null ? {} : { blocked_after: after }, marker);
     }

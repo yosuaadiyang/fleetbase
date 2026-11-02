@@ -141,3 +141,21 @@
 .contrust-chat-report-message {
     min-height: 44px;
 }
+
+.contrust-operational-safety {
+    flex-shrink: 0;
+}
+.contrust-operational-safety:empty {
+    display: none;
+}
+.contrust-chat-safety-dialog input:not([type='checkbox']) {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    color: #111827;
+    background: #fff;
+    border: 1px solid #64748b;
+    border-radius: 4px;
+    padding: 8px;
+}

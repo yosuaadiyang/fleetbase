@@ -16,9 +16,20 @@ COPY api/app/Support/ActiveAccountSession.php api/app/Support/DriverAuthenticati
     api/app/Support/InternalChatAccess.php api/app/Support/ChatSafety.php api/app/Support/ChatSafetyInput.php \
     api/app/Support/DriverOrderComments.php api/app/Support/OrganizationChat.php api/app/Support/ChatPagination.php \
     api/app/Support/DriverReports.php api/app/Support/ProofImageInput.php /fleetbase/api/app/Support/
+COPY api/app/Support/OperationalReportContext.php api/app/Support/OperationalReportPreview.php \
+    api/app/Support/OperationalContentAccess.php api/app/Support/OperationalReportInput.php \
+    api/app/Support/OperationalReports.php api/app/Support/OperationalContribution.php /fleetbase/api/app/Support/
+COPY api/app/Http/Controllers/OperationalSafetyController.php /fleetbase/api/app/Http/Controllers/
 COPY api/app/Http/Controllers/ChatSafetyController.php /fleetbase/api/app/Http/Controllers/ChatSafetyController.php
 COPY api/config/contrust.php /fleetbase/api/config/contrust.php
-RUN php -l /fleetbase/api/app/Support/ChatSafety.php \
+RUN php -l /fleetbase/api/app/Http/Controllers/OperationalSafetyController.php \
+    && php -l /fleetbase/api/app/Support/OperationalContentAccess.php \
+    && php -l /fleetbase/api/app/Support/OperationalContribution.php \
+    && php -l /fleetbase/api/app/Support/OperationalReportContext.php \
+    && php -l /fleetbase/api/app/Support/OperationalReportInput.php \
+    && php -l /fleetbase/api/app/Support/OperationalReportPreview.php \
+    && php -l /fleetbase/api/app/Support/OperationalReports.php \
+    && php -l /fleetbase/api/app/Support/ChatSafety.php \
     && php -l /fleetbase/api/app/Support/ChatSafetyInput.php \
     && php -l /fleetbase/api/app/Http/Controllers/ChatSafetyController.php \
     && php -l /fleetbase/api/app/Support/InternalChatAccess.php \

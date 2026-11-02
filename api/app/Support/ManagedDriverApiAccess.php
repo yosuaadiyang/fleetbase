@@ -57,8 +57,13 @@ final class ManagedDriverApiAccess
         $request->attributes->set('contrust.driver_uuid', $driver->uuid);
         session()->put('driver', $driver->uuid);
 
+        if ($class === 'App\\Http\\Controllers\\OperationalSafetyController') {
+            return in_array($action, ['status', 'preview', 'report'], true) ? null : self::denied();
+        }
+
         if (in_array($class, [$fleetOpsApi . 'IssueController', $fleetOpsApi . 'FuelReportController'], true)) {
-            return DriverReports::handle($request, $driver, $user, $action, $class === $fleetOpsApi . 'FuelReportController');
+            return OperationalContribution::handle($request, $user,
+                fn ($request) => DriverReports::handle($request, $driver, $user, $action, $class === $fleetOpsApi . 'FuelReportController'));
         }
 
         if ($class === 'Fleetbase\\Http\\Controllers\\Api\\v1\\ChatChannelController') {
@@ -102,7 +107,8 @@ final class ManagedDriverApiAccess
         }
 
         if ($class === 'Fleetbase\\Http\\Controllers\\Api\\v1\\CommentController') {
-            return DriverOrderComments::handle($request, $driver, $user, $action, $route->parameter('id'));
+            return OperationalContribution::handle($request, $user,
+                fn ($request) => DriverOrderComments::handle($request, $driver, $user, $action, $route->parameter('id')));
         }
 
         if ($class === $fleetOpsApi . 'OrderController') {

@@ -1,0 +1,51 @@
+<div class="contrust-operational-safety" {{did-insert this.refresh}} {{did-update this.refresh this.chatSafety.marker}}>
+    {{#if this.available}}<button type="button" class="contrust-chat-safety-trigger" {{on "click" this.open}}>Keamanan konten operasional</button>{{/if}}
+</div>
+{{#if this.visible}}
+    <ChatSafetyDialog @title="Keamanan konten operasional" @close={{this.close}}>
+        <ChatSafetyPolicy @operational={{true}} />
+        <p>Untuk melaporkan konten yang dapat Anda lihat, salin referensi ID dari detail laporan/POD atau komentar order, pilih jenisnya, lalu periksa pratinjau. Ini tidak mengubah status
+            order atau laporan.</p>
+        {{#if this.pendingDrafts}}<p>Pengiriman yang belum dikonfirmasi:</p>{{#each this.pendingDrafts as |draft|}}<button
+                    type="button"
+                    disabled={{this.panel.loading}}
+                    {{on "click" (fn this.resume draft)}}
+                >{{draft.label}} · {{draft.target}}</button>{{/each}}{{/if}}
+        <label>Jenis konten<select aria-label="Jenis konten operasional" disabled={{this.locked}} {{on "change" this.changeType}}><option value="">Pilih jenis</option>{{#each
+                    this.types
+                    as |type|
+                }}<option value={{type.id}} selected={{eq type.id this.panel.type}}>{{type.label}}</option>{{/each}}</select></label>
+        <label>Referensi ID<Input aria-label="Referensi konten operasional" @value={{this.panel.target}} maxlength="150" disabled={{this.locked}} {{on "input" this.changeTarget}} /></label>
+        {{#unless this.panel.preview}}<button type="button" disabled={{not this.canPreview}} {{on "click" this.preview}}>{{if
+                    this.panel.loading
+                    "Memeriksa…"
+                    "Periksa pratinjau"
+                }}</button>{{/unless}}
+        {{#if this.panel.preview}}
+            <p>Pemilik organisasi menerima hanya pratinjau terpilih, alasan dan detail yang Anda konfirmasi. Lokasi, biaya, berkas foto POD dan riwayat lain tidak otomatis dibagikan.</p>
+            <p>Referensi: {{this.panel.preview.context.message.id}}</p>
+            <p>{{this.panel.preview.context.target.name}}</p>
+            {{#if this.panel.preview.context.order_id}}<p>Order: {{this.panel.preview.context.order_id}}</p>{{/if}}
+            <blockquote class="contrust-chat-report-preview">{{this.panel.preview.context.message.content}}</blockquote>
+            <label>Alasan<select aria-label="Alasan laporan konten" disabled={{or this.panel.journal this.panel.loading this.panel.saved}} {{on "change" this.changeReason}}><option
+                        value=""
+                    >Pilih alasan</option>{{#each this.reasons as |reason|}}<option
+                            value={{reason.id}}
+                            selected={{eq reason.id this.panel.reason}}
+                        >{{reason.label}}</option>{{/each}}</select></label>
+            <label>Detail tambahan<Textarea
+                    aria-label="Detail laporan konten"
+                    @value={{this.panel.details}}
+                    maxlength="2000"
+                    disabled={{or this.panel.journal this.panel.loading this.panel.saved}}
+                    {{on "input" this.changeDetails}}
+                /></label>
+            <label><input type="checkbox" checked={{this.panel.share}} disabled={{or this.panel.loading this.panel.saved}} {{on "change" this.changeShare}} />Saya setuju membagikan pratinjau
+                terpilih kepada pemilik organisasi.</label>
+            {{#if this.panel.journal}}<p>Draf tersimpan. Konfirmasi ulang memakai ID dan isian yang sama.</p>{{/if}}
+            <button type="button" disabled={{not this.canSubmit}} {{on "click" this.submit}}>{{if this.panel.loading "Mengirim…" "Konfirmasi kirim laporan konten"}}</button>
+            {{#if this.panel.stale}}<button type="button" {{on "click" this.newPreview}}>Periksa pratinjau baru</button>{{/if}}
+        {{/if}}
+        {{#if this.panel.feedback}}<p role="status">{{this.panel.feedback}}</p>{{/if}}
+    </ChatSafetyDialog>
+{{/if}}

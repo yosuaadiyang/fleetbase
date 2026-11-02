@@ -49,7 +49,9 @@ report_file=$(mktemp)
 trap 'rm -f "$report_file"' EXIT
 run_fixture() {
  local name=$1 kind=$2 status=0
- "${compose[@]}" exec -T application php "/opt/contrust-release-fixtures/$name" > "$report_file" || status=$?
+ local fixture_args=()
+ if [ "$#" -gt 2 ]; then fixture_args+=("$3"); fi
+ "${compose[@]}" exec -T application php "/opt/contrust-release-fixtures/$name" "${fixture_args[@]}" > "$report_file" || status=$?
  python3 scripts/release/check-qa-results.py "$kind" "$report_file"
  test "$status" -eq 0
 }
@@ -90,3 +92,29 @@ run_fixture diagnostic-access-contract.php diagnostic-access
 run_fixture dashboard-metrics-contract.php dashboard-metrics
 
 run_fixture resource-crud-contract.php resource-crud
+
+# Expanded reporting is exercised only after all legacy contracts passed. This
+# stack was validated above as synthetic-only with internal networking/log mail.
+run_fixture operational-content-contract.php operational-content-prepare prepare
+operational_override=$(mktemp)
+trap 'rm -f "$report_file" "$operational_override"' EXIT
+cat > "$operational_override" <<'JSON'
+{"services":{"application":{"environment":{"CONTRUST_CHAT_SAFETY_ENABLED":"true","CONTRUST_OPERATIONAL_REPORTS_ENABLED":"true"}}}}
+JSON
+python3 - "$envfile" "$operational_override" <<'PYCONFIG'
+import json,subprocess,sys
+base=['docker','compose','--env-file',sys.argv[1],'-f','docker/release-qa/compose.yml']
+old=json.loads(subprocess.check_output(base+['config','--format','json'],text=True))
+new=json.loads(subprocess.check_output(base+['-f',sys.argv[2],'config','--format','json'],text=True))
+assert old['name']=='contrust-release-qa' and old['networks']['isolated']['internal']
+e=old['services']['application']['environment']
+assert e['DB_DATABASE']=='contrust_release_qa' and e['APP_ENV']=='testing' and e['MAIL_MAILER']==e['BROADCAST_DRIVER']=='log' and not e['BREVO_API_KEY']
+expected=dict(old,services=dict(old['services']))
+app=old['services']['application']
+expected['services']['application']=dict(app,environment=dict(app['environment'],CONTRUST_CHAT_SAFETY_ENABLED='true',CONTRUST_OPERATIONAL_REPORTS_ENABLED='true'))
+assert new==expected
+print('PASS operational feature enabled only in guarded synthetic QA config')
+PYCONFIG
+compose+=(-f "$operational_override")
+"${compose[@]}" up -d --force-recreate --no-deps --no-build --pull never --wait --wait-timeout 120 application
+run_fixture operational-content-contract.php operational-content
